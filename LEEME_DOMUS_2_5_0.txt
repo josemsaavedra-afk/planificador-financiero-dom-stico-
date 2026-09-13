@@ -1,0 +1,21 @@
+DOMUS V2.5.0 · build 250
+
+Paquete preparado sobre la versión estable 241.
+
+Archivos a subir a la raíz del repositorio GitHub:
+- index.html
+- index-250.html
+- manifest.webmanifest
+- version.json
+- sw.js
+- icon-180.png
+- icon-192.png
+- icon-512.png
+
+La base de datos Supabase ya tiene aplicadas las migraciones de DOMUS 2.5 para:
+- número de factura y cliente/proveedor en movimientos,
+- relaciones muchos-a-muchos entre facturas de ingreso y gastos asociados,
+- gestión documental sin conservar obligatoriamente el archivo binario,
+- conservación de relaciones de los datos ONLOGIST existentes sin borrarlos.
+
+No eliminar index-241.html: queda como versión estable anterior y respaldo.

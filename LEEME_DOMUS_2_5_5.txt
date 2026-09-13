@@ -1,0 +1,8 @@
+DOMUS V2.5.5 · build 255
+
+Cambios esenciales:
+- Tesorería: próximo cobro solo como referencia de fecha e importe.
+- Pagos pendientes hasta próximo cobro = vencidos sin pagar + pagos pendientes con vencimiento hasta esa fecha.
+- No se suman ingresos pendientes anteriores ni se calcula superávit/diferencia tras el cobro.
+- Comisiones y seguros cuentan como gastos normales según su propia fecha; no se fuerzan por relación ni se duplican.
+- Calendario conserva apertura en el mes actual y scroll continuo.

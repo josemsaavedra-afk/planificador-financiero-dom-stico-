@@ -10,10 +10,19 @@ class Element {
     if (!this.nodes.has(selector)) this.nodes.set(selector, new Element());
     return this.nodes.get(selector);
   }
-  querySelectorAll(selector) { return selector === '[data-balance-account]' ? this.boxes || [] : []; }
+  querySelectorAll(selector) {
+    if (selector === '[data-balance-account]') return this.boxes || [];
+    return this.groups?.[selector] || [];
+  }
   set innerHTML(value) {
     this.html = value;
     this.nodes.clear();
+    this.groups = {};
+    for (const [attribute, key] of [['data-review-confirm','reviewConfirm'],['data-review-discard','reviewDiscard'],['data-review-select','reviewSelect']]) {
+      this.groups[`[${attribute}]`] = [...value.matchAll(new RegExp(attribute + '="([^"]+)"', 'g'))].map(match => {
+        const element = new Element(); element.dataset[key] = match[1]; return element;
+      });
+    }
     this.boxes = [...value.matchAll(/data-balance-account="([^"]+)"/g)].map(match => {
       const box = new Element(); box.dataset.balanceAccount = match[1]; return box;
     });
@@ -124,4 +133,20 @@ test('el puente de autenticación limpia al salir o cambiar usuario, no al refre
   assert.equal(resets, 1);
   callback('SIGNED_OUT', null);
   assert.equal(resets, 2);
+});
+
+test('una conciliación confirmada sobrevive al render y queda obsoleta si cambia el movimiento', async () => {
+  const source = { ...snapshot, rows: [{ id:'m',type:'expense',amount:10,account_id:accountId,concept:'Compra',status:'done',actual_date:'2026-09-18',occurrence_date:'2026-09-18' }] };
+  renderTreasury3(source); select.value = accountId;
+  await root.querySelector('#treasuryCsv').onchange({ target: { files: [{ name:'test.csv',text:async()=> 'Fecha;Concepto;Importe\n2026-09-18;Compra;-10' }] } });
+  let output = root.querySelector('#treasuryCsvResult');
+  output.querySelectorAll('[data-review-confirm]')[0].onclick();
+  assert.match(output.innerHTML,/1 confirmadas localmente/);
+  renderTreasury3(source);
+  assert.match(root.querySelector('#treasuryCsvResult').innerHTML,/1 confirmadas localmente/);
+  renderTreasury3({...source,rows:[{...source.rows[0],amount:20}]});
+  assert.match(root.querySelector('#treasuryCsvResult').innerHTML,/Los movimientos han cambiado/);
+  assert.match(root.querySelector('#treasuryCsvResult').innerHTML,/1 confirmadas localmente/);
+  resetTreasury3(); renderTreasury3(source);
+  assert.doesNotMatch(root.querySelector('#treasuryCsvResult').innerHTML,/confirmadas localmente/);
 });

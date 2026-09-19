@@ -98,3 +98,10 @@ Una futura migración debería mantener checkpoints de saldo por cuenta en una t
 
 - Auditoría temporal fijada por el servidor y líneas idénticas conservadas por ordinal.
 - 77 pruebas correctas; SQL solo en memoria. [Detalle y límites](ALPHA13-AUDITORIA.md).
+
+## Alpha 14
+
+- Parser CSV estricto: comillas escapadas, campos multilínea, fechas reales, importes no ambiguos y errores localizados. Límites: 5 MB y 5000 movimientos. No mezcla importe único y cargo/abono; no deduplica líneas idénticas.
+- Revisiones en memoria conservadas al renderizar. Reabrir una revisión o importar su fichero de nuevo permite continuarla. Un cambio en los movimientos marca el informe como obsoleto (`stale`) y bloquea decisiones; reimportar genera otra revisión conservando la anterior. Cerrar sesión o recargar sigue borrando datos no persistidos.
+- Snapshot propio de Tesorería con todo el historial conocido, sin recorte de cinco años; incluye estados realizados anticipadamente. Movimientos y estados se cargan por páginas. Los errores de carga no publican resultados parciales. El snapshot no garantiza consistencia transaccional entre páginas concurrentemente modificadas.
+- 86 pruebas correctas. No se activa persistencia ni se consulta producción durante las pruebas.

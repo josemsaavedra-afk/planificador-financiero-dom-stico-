@@ -17,7 +17,7 @@ Este bloque es deliberadamente de solo cálculo. No ejecuta `INSERT`, `UPDATE`, 
 
 ## Verificación
 
-Ejecutar `npm test`. Las pruebas cubren clasificación temporal, precedencia de estados, reprogramación, prefinanciación, cancelaciones, saldos por cuenta, horizontes y compatibilidad heredada.
+Instalar las dependencias de desarrollo con `pnpm install --frozen-lockfile --ignore-scripts` y ejecutar `pnpm test` (o `node --test`). Las pruebas cubren clasificación temporal, precedencia de estados, reprogramación, prefinanciación, cancelaciones, saldos por cuenta, horizontes y compatibilidad heredada. Desde Alpha 12 incluyen PostgreSQL en memoria; `pnpm run test:rls` ejecuta solo esas pruebas.
 
 ## Alpha 5
 
@@ -85,3 +85,11 @@ Una futura migración debería mantener checkpoints de saldo por cuenta en una t
 - La descarga no cambia el saldo calculado: «Usar localmente» mantiene su función separada.
 - Limpia saldos y huellas temporales al cambiar usuario u hogar o perder la sesión; invalida lecturas CSV pendientes de otro contexto.
 - Diagnóstico, pruebas y riesgos pendientes de la propuesta SQL: [auditoría Alpha 11](ALPHA11-AUDITORIA.md).
+
+## Alpha 12
+
+- Nueva propuesta SQL con referencias correlacionadas explícitas para impedir cruces entre hogares, incluso con doble membresía.
+- Sustituye cascadas por restricciones para conservar el historial ante borrados de entidades padre.
+- Añade 21 pruebas SQL ejecutadas en PostgreSQL en memoria: RLS, integridad, duplicados, revocaciones y reversión aislada.
+- Las propuestas anteriores se conservan como antecedentes. No se aplica ninguna migración a Supabase ni se activa persistencia en la aplicación.
+- Instrucciones reproducibles y límites: [informe Alpha 12](ALPHA12-RLS.md).

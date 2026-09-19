@@ -4,6 +4,10 @@
   "version": "3.0.0-alpha.11",
   "type": "module",
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "test:rls": "node --test test/treasury-rls.test.js"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8"
   }
 }

@@ -1,5 +1,31 @@
-const CACHE='domus-30014';
-const SHELL=['./index.html','./manifest.webmanifest','./version.json','./icon-180.png','./icon-192.png','./icon-512.png','./src/treasury/checkpoint-draft.js','./src/treasury/balance-checkpoint.js','./src/treasury/engine.js','./src/treasury/reconciliation.js','./src/treasury/reconciliation-report.js','./src/treasury/reconciliation-review.js','./src/treasury/statement-csv.js','./src/treasury/view-model.js','./src/treasury/ui.js','./src/treasury/snapshot.js','./src/treasury/data-loading.js'];
-self.addEventListener('install',event=>{self.skipWaiting();event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL.map(x=>x+(x.includes('?')?'&':'?')+'v=30014'))).catch(()=>{}));});
-self.addEventListener('activate',event=>{event.waitUntil((async()=>{const keys=await caches.keys();await Promise.all(keys.filter(k=>k!==CACHE&&(k.startsWith('planificador-')||k.startsWith('domus-'))).map(k=>caches.delete(k)));await self.clients.claim();})());});
-self.addEventListener('fetch',event=>{const req=event.request;if(req.method!=='GET')return;const url=new URL(req.url);if(url.origin!==self.location.origin)return;if(req.mode==='navigate'||url.pathname.endsWith('/index.html')||url.pathname.endsWith('/index-258.html')||url.pathname.endsWith('/manifest.webmanifest')||url.pathname.endsWith('/version.json')){event.respondWith((async()=>{try{const res=await fetch(req,{cache:'no-store'});if(res&&res.ok){const copy=res.clone();caches.open(CACHE).then(c=>c.put(req,copy));}return res;}catch(_){return (await caches.match(req))||(await caches.match('./index-258.html'))||(await caches.match('./index.html'));}})());return;}event.respondWith(caches.match(req).then(cached=>cached||fetch(req).then(res=>{if(res&&res.ok){const copy=res.clone();caches.open(CACHE).then(c=>c.put(req,copy));}return res;})));});
+importScripts('./asset-manifest.js');
+const BASE = new URL('./', self.location.href);
+const PREFIX = 'domus3:' + BASE.pathname + ':';
+const CACHE = PREFIX + self.DOMUS3_BUILD;
+const ASSETS = self.DOMUS3_ASSETS.map(file => new URL(file, BASE).href);
+self.addEventListener('install', event => {
+  event.waitUntil((async () => {
+    if (!BASE.pathname.endsWith('/domus-3/')) throw new Error('DOMUS 3 requiere su directorio independiente /domus-3/');
+    const cache = await caches.open(CACHE);
+    await cache.addAll(ASSETS.map(url => new Request(url, { cache: 'reload' })));
+    await self.skipWaiting();
+  })());
+});
+self.addEventListener('activate', event => {
+  event.waitUntil((async () => {
+    for (const key of await caches.keys()) if (key.startsWith(PREFIX) && key !== CACHE) await caches.delete(key);
+    await self.clients.claim();
+  })());
+});
+self.addEventListener('fetch', event => {
+  const request = event.request, url = new URL(request.url);
+  if (request.method !== 'GET' || url.origin !== BASE.origin || !url.pathname.startsWith(BASE.pathname)) return;
+  // Only static shell assets; no API responses, documents or token-bearing cache keys.
+  const asset = new URL(url.pathname === BASE.pathname ? 'index.html' : url.pathname, BASE).href;
+  if (!ASSETS.includes(asset)) return;
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE), stored = await cache.match(asset);
+    if (stored) return stored;
+    return fetch(request);
+  })());
+});

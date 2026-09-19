@@ -103,5 +103,13 @@ Una futura migración debería mantener checkpoints de saldo por cuenta en una t
 
 - Parser CSV estricto: comillas escapadas, campos multilínea, fechas reales, importes no ambiguos y errores localizados. Límites: 5 MB y 5000 movimientos. No mezcla importe único y cargo/abono; no deduplica líneas idénticas.
 - Revisiones en memoria conservadas al renderizar. Reabrir una revisión o importar su fichero de nuevo permite continuarla. Un cambio en los movimientos marca el informe como obsoleto (`stale`) y bloquea decisiones; reimportar genera otra revisión conservando la anterior. Cerrar sesión o recargar sigue borrando datos no persistidos.
-- Snapshot propio de Tesorería con todo el historial conocido, sin recorte de cinco años; incluye estados realizados anticipadamente. Movimientos y estados se cargan por páginas. Los errores de carga no publican resultados parciales. El snapshot no garantiza consistencia transaccional entre páginas concurrentemente modificadas.
+- Snapshot propio de Tesorería con todo el historial conocido, sin recorte de cinco años; incluye estados realizados anticipadamente. Movimientos se cargan por páginas; la paginación de estados quedó pendiente y se corrige en Alpha 15. Los errores de carga no publican resultados parciales. El snapshot no garantiza consistencia transaccional entre páginas concurrentemente modificadas.
 - 86 pruebas correctas. No se activa persistencia ni se consulta producción durante las pruebas.
+
+## Alpha 15
+
+- PWA empaquetada bajo `/domus-3/`, con SDK fijado y recursos offline, identidad, cachés y almacenamiento separados.
+- Recuperación probada con SDK real y HTTP simulado; corrige la carrera que ocultaba el formulario. Mantiene usuario y hogar.
+- Tablas desplazables dentro de las tarjetas y formularios a 390 px; checkpoints y revisión bancaria probados en navegador.
+- Paginación de estados históricos verificada con 1.201 registros; protección frente a respuestas de otro contexto de usuario/hogar.
+- 95 pruebas Node y cuatro escenarios de navegador. Persistencia SQL sigue siendo propuesta; no es aún RC. [Resultados, reproducción y pendientes](ALPHA15-AUDITORIA.md).

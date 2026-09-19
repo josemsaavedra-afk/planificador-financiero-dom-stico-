@@ -1,1 +1,22 @@
-{"name":"DOMUS · Finanzas y tesorería","short_name":"DOMUS","start_url":"./index-258.html?source=pwa&v=258","display":"standalone","background_color":"#f4f7fb","theme_color":"#073b3a","icons":[{"src":"icon-192.png","sizes":"192x192","type":"image/png"},{"src":"icon-512.png","sizes":"512x512","type":"image/png"}]}
+{
+  "id": "./",
+  "name": "DOMUS 3.0 · Tesorería",
+  "short_name": "DOMUS 3",
+  "scope": "./",
+  "start_url": "./index.html?source=pwa",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#073b3a",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

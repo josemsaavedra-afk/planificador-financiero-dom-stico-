@@ -1,0 +1,74 @@
+# DOMUS 3.0 · Tesorería 3.0
+
+Primer bloque funcional posterior a Alpha 3. No modifica producción ni el esquema de Supabase.
+
+## Criterios
+
+- Separa importe bruto, coste y neto prefinanciado.
+- La fecha efectiva sigue esta prioridad: real/liquidación, prefinanciación, reprogramación, previsión, vencimiento y ocurrencia.
+- Deriva los estados `previsto`, `pendiente`, `vencido`, `realizado`, `reprogramado`, `prefinanciado`, `liquidado` y `cancelado`.
+- Conserva la fecha original al reprogramar.
+- Calcula totales y proyección cronológica por cuenta sin sustituir datos reales por previsiones.
+- El adaptador acepta las ocurrencias generadas por el modelo 2.5.8.
+
+## Seguridad de datos
+
+Este bloque es deliberadamente de solo cálculo. No ejecuta `INSERT`, `UPDATE`, `DELETE` ni migraciones. La futura persistencia será una migración aditiva y requerirá comparación antes/después.
+
+## Verificación
+
+Ejecutar `npm test`. Las pruebas cubren clasificación temporal, precedencia de estados, reprogramación, prefinanciación, cancelaciones, saldos por cuenta, horizontes y compatibilidad heredada.
+
+## Alpha 5
+
+- Integración no destructiva del motor con `index.html` mediante un puente de compatibilidad.
+- Paneles separados para estados reales y previsiones, próximo cobro, pagos hasta el próximo cobro, horizontes acumulados y flujo real por cuenta.
+- Desglose navegable de todas las cifras.
+- El simulador heredado de prefinanciación se conserva plegado durante la transición.
+- Los módulos de Tesorería 3.0 se incluyen en la caché offline de la rama de desarrollo.
+
+## Alpha 6
+
+- El saldo calculado por cuenta parte exclusivamente de un saldo inicial confirmado y fechado; si falta alguno, la interfaz explica por qué no ofrece una cifra.
+- La conciliación importa extractos CSV de forma local, admite columnas de importe único o cargo/abono y no escribe datos.
+- Las coincidencias se proponen por importe exacto, proximidad de fecha y similitud de concepto o referencia.
+- Los casos ambiguos, incompletos o sin coincidencia quedan señalados para revisión; ninguna propuesta se confirma automáticamente.
+- Un movimiento de DOMUS no puede asignarse como propuesta principal a dos líneas distintas del mismo extracto.
+- La persistencia de saldos iniciales, extractos y confirmaciones queda aplazada hasta aprobar una migración aditiva, reversible y auditable.
+
+### Contrato CSV provisional
+
+Se admite separador coma o punto y coma, fechas ISO o `dd/mm/aaaa`, y encabezados habituales en español o inglés. Cada fila debe contener `fecha`, `concepto` y `importe`, o bien `fecha`, `concepto`, `cargo` y `abono`. Los importes se normalizan únicamente en memoria y el fichero no se transmite ni se conserva.
+
+### Diseño de persistencia pendiente de autorización
+
+Una futura migración debería mantener checkpoints de saldo por cuenta en una tabla separada, con fecha, importe, origen y metadatos de auditoría, y guardar extractos y vínculos de conciliación como registros independientes. No debe sobrescribir saldos ni estados existentes. Este diseño es informativo: Alpha 6 no incluye ni ejecuta SQL de migración.
+
+## Alpha 7
+
+- Cada línea del extracto dispone de una revisión explícita: seleccionar candidato, confirmar localmente o descartar.
+- Las coincidencias ambiguas nunca llegan preseleccionadas.
+- Una misma operación DOMUS no puede confirmarse para dos líneas del extracto.
+- Las decisiones cerradas no se alteran accidentalmente durante la sesión.
+- Las confirmaciones generan únicamente un borrador trazable en memoria; al recargar o salir se pierden y no se envían a Supabase.
+- La propuesta de persistencia futura está documentada en `ALPHA7-PERSISTENCIA-PROPUESTA.md`, sin SQL ejecutable.
+
+## Alpha 8
+
+- Permite introducir en memoria un saldo inicial confirmado y su fecha para cada cuenta.
+- Calcula el saldo desde ese checkpoint usando exclusivamente movimientos reales posteriores.
+- Compara el saldo calculado con un saldo bancario observado y muestra el descuadre exacto sin crear movimientos compensatorios.
+- Los checkpoints y comprobaciones se pierden al cerrar o recargar la aplicación y nunca se envían a Supabase.
+- Incluye bajo `database/proposals/` un borrador aditivo y su reversión para revisión; ambos están expresamente bloqueados hasta auditar el esquema real y obtener autorización.
+
+## Alpha 9
+
+- Obliga a seleccionar la cuenta bancaria antes de leer un extracto.
+- Compara las líneas solo con movimientos reales de esa cuenta; no propone movimientos de otras cuentas.
+- Calcula en el navegador la huella SHA-256 del contenido y bloquea la revisión duplicada del mismo fichero para la misma cuenta durante la sesión.
+- La misma huella puede revisarse para otra cuenta, porque la identidad de importación combina cuenta y contenido.
+- Genera un informe JSON descargable con cuenta, fichero, huella, resumen, decisiones y vínculos seleccionados.
+- El informe declara expresamente `persisted: false`; su descarga no confirma ni guarda conciliaciones.
+- Incorpora recuperación de contraseña: solicitud de correo, detección de `PASSWORD_RECOVERY` y formulario para establecer una contraseña nueva.
+- La solicitud devuelve siempre un mensaje genérico y no revela si el correo existe.
+- La recuperación conserva el mismo usuario y, por tanto, su pertenencia al hogar compartido; no crea una segunda cuenta.

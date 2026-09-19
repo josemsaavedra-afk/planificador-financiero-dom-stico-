@@ -72,3 +72,16 @@ Una futura migración debería mantener checkpoints de saldo por cuenta en una t
 - Incorpora recuperación de contraseña: solicitud de correo, detección de `PASSWORD_RECOVERY` y formulario para establecer una contraseña nueva.
 - La solicitud devuelve siempre un mensaje genérico y no revela si el correo existe.
 - La recuperación conserva el mismo usuario y, por tanto, su pertenencia al hogar compartido; no crea una segunda cuenta.
+
+## Alpha 10
+
+- Añade una propuesta SQL de persistencia y su reversión bajo `database/proposals/`, sin activarlas en la aplicación.
+- Las propuestas requieren autorización y validación de esquema/RLS antes de ejecutarse.
+
+## Alpha 11
+
+- Permite descargar un borrador JSON del saldo introducido para una cuenta del hogar activo.
+- Valida hogar, cuenta, fecha e importe decimal sin redondearlo. El borrador declara `persisted: false` y no envía datos a Supabase.
+- La descarga no cambia el saldo calculado: «Usar localmente» mantiene su función separada.
+- Limpia saldos y huellas temporales al cambiar usuario u hogar o perder la sesión; invalida lecturas CSV pendientes de otro contexto.
+- Diagnóstico, pruebas y riesgos pendientes de la propuesta SQL: [auditoría Alpha 11](ALPHA11-AUDITORIA.md).

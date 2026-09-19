@@ -93,3 +93,8 @@ Una futura migración debería mantener checkpoints de saldo por cuenta en una t
 - Añade 21 pruebas SQL ejecutadas en PostgreSQL en memoria: RLS, integridad, duplicados, revocaciones y reversión aislada.
 - Las propuestas anteriores se conservan como antecedentes. No se aplica ninguna migración a Supabase ni se activa persistencia en la aplicación.
 - Instrucciones reproducibles y límites: [informe Alpha 12](ALPHA12-RLS.md).
+
+## Alpha 13
+
+- Auditoría temporal fijada por el servidor y líneas idénticas conservadas por ordinal.
+- 77 pruebas correctas; SQL solo en memoria. [Detalle y límites](ALPHA13-AUDITORIA.md).

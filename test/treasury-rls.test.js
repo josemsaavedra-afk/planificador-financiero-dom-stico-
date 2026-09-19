@@ -6,8 +6,8 @@ import { PGlite } from '@electric-sql/pglite';
 // No URL, credentials, persistent data directory or external database accepted.
 const db = new PGlite();
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
-const up = read('../database/proposals/alpha12_treasury_persistence_up.sql');
-const down = read('../database/proposals/alpha12_treasury_persistence_down.sql');
+const up = read('../database/proposals/alpha13_treasury_persistence_up.sql');
+const down = read('../database/proposals/alpha13_treasury_persistence_down.sql');
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const tables = ['account_balance_checkpoints', 'bank_statement_imports', 'bank_statement_lines', 'treasury_reconciliations'];
 
@@ -39,10 +39,12 @@ before(async () => {
   await db.exec(read('../database/tests/treasury_fixture.sql'));
   await db.exec(up); // Execute the exact reviewed proposal, including its policies and grants.
   for (const [household, account, actor, importId, lineId, hash] of [[11, 101, 1, 301, 401, 'a'], [12, 102, 2, 302, 402, 'b']]) {
+    await db.query("select set_config('request.jwt.claim.sub', $1, false)", [id(actor)]);
     await checkpoint({ household_id: id(household), account_id: id(account), balance_date: '2026-09-18', created_by: id(actor) });
     await bankImport({ id: id(importId), household_id: id(household), account_id: id(account), imported_by: id(actor), content_sha256: hash.repeat(64) });
     await line({ id: id(lineId), import_id: id(importId), line_ordinal: 1, content_sha256: hash.repeat(64) });
   }
+  await db.query("select set_config('request.jwt.claim.sub', $1, false)", [id(1)]);
   await line({ id: id(403), line_ordinal: 2, content_sha256: 'd'.repeat(64) });
 });
 after(async () => { await db.close(); });
@@ -123,12 +125,14 @@ test('saldo, importación y línea son append-only para authenticated', async ()
   await rejected(() => db.query('delete from public.treasury_reconciliations'), '42501');
 });
 
-test('detecta duplicados de saldo, importación, ordinal y huella de línea', async () => {
+test('detecta duplicados de saldo, importación y ordinal; conserva líneas idénticas', async () => {
   await checkpoint();
   await rejected(() => checkpoint(), '23505');
   await rejected(() => bankImport({ content_sha256: 'a'.repeat(64) }), '23505');
   await rejected(() => line({ line_ordinal: 1 }), '23505');
-  await rejected(() => line({ content_sha256: 'a'.repeat(64) }), '23505');
+  const repeated = await line({ content_sha256: 'a'.repeat(64) });
+  assert.equal(repeated.rows[0].line_ordinal, 3);
+  assert.equal((await db.query("select * from public.bank_statement_lines where content_sha256=$1", ['a'.repeat(64)])).rows.length, 2);
 });
 
 test('conciliación válida exige misma cuenta, hogar y ocurrencia existente', async () => {
@@ -247,5 +251,42 @@ test('reversión y reaplicación solo en otra instancia efímera, sin alterar ta
     assert.equal((await scratch.query('select count(*)::int as n from public.accounts')).rows[0].n, 3);
     await scratch.exec(up);
     assert.equal((await scratch.query('select count(*)::int as n from public.account_balance_checkpoints')).rows[0].n, 0);
+  } finally { await scratch.close(); }
+});
+
+test('fechas de auditoría provienen del servidor aunque el cliente intente falsificarlas', async () => {
+  const fake = '2000-01-01T00:00:00Z';
+  const start = (await db.query('select statement_timestamp() as time')).rows[0].time;
+  const checkpointRow = (await checkpoint({ created_at: fake })).rows[0];
+  const importRow = (await bankImport({ imported_at: fake })).rows[0];
+  const lineRow = (await line({ created_at: fake })).rows[0];
+  const confirmed = (await reconciliation({ confirmed_at: fake })).rows[0];
+  const revoked = (await db.query("update public.treasury_reconciliations set status='revoked', revoked_by=auth.uid(), revoked_at=$1, revocation_reason='Corrección' where id=$2 returning *", [fake, confirmed.id])).rows[0];
+  for (const date of [checkpointRow.created_at, importRow.imported_at, lineRow.created_at, confirmed.confirmed_at, revoked.revoked_at]) {
+    assert.ok(new Date(date) >= new Date(start));
+  }
+  assert.equal(new Date(revoked.confirmed_at).getTime(), new Date(confirmed.confirmed_at).getTime());
+});
+
+test('solicitudes simultáneas encoladas: una inserción gana y solo una revocación modifica', async () => {
+  // PGlite serializes one connection. This tests request collisions, not multi-connection locking.
+  const scratch = new PGlite();
+  try {
+    await scratch.exec(read('../database/tests/treasury_fixture.sql'));
+    await scratch.exec(up);
+    await scratch.exec('set role authenticated');
+    await scratch.query("select set_config('request.jwt.claim.sub',$1,false)", [id(1)]);
+    const attempts = await Promise.allSettled([1, 2].map(() => scratch.query(
+      "insert into public.account_balance_checkpoints(household_id,account_id,balance_date,balance,source) values ($1,$2,'2026-09-19',100,'manual') returning id", [id(11), id(101)])));
+    assert.equal(attempts.filter(r => r.status === 'fulfilled').length, 1);
+    assert.equal(attempts.find(r => r.status === 'rejected').reason.code, '23505');
+    const imported = (await scratch.query("insert into public.bank_statement_imports(household_id,account_id,file_name,content_sha256,line_count) values ($1,$2,'test.csv',$3,2) returning id", [id(11),id(101),'a'.repeat(64)])).rows[0];
+    const lines = (await scratch.query("insert into public.bank_statement_lines(import_id,line_ordinal,transaction_date,concept,signed_amount,content_sha256) values ($1,1,'2026-09-19','Igual',-10,$2),($1,2,'2026-09-19','Igual',-10,$2) returning id", [imported.id,'b'.repeat(64)])).rows;
+    assert.equal(lines.length, 2);
+    const confirmed = (await scratch.query("insert into public.treasury_reconciliations(household_id,statement_line_id,movement_series_id,occurrence_date) values ($1,$2,$3,'2026-09-19') returning id", [id(11),lines[0].id,id(201)])).rows[0];
+    const revocations = await Promise.all([1,2].map(() => scratch.query("update public.treasury_reconciliations set status='revoked', revoked_by=auth.uid(), revocation_reason='Prueba' where id=$1 returning id", [confirmed.id])));
+    assert.deepEqual(revocations.map(r => r.rows.length).sort(), [0,1]);
+    assert.equal((await scratch.query('select * from public.bank_statement_lines')).rows.length,2);
+    assert.equal((await scratch.query('select status from public.treasury_reconciliations')).rows[0].status,'revoked');
   } finally { await scratch.close(); }
 });

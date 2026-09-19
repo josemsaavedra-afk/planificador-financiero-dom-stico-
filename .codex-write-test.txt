@@ -1,3 +1,0 @@
-DOMUS 3.0 - prueba de escritura Codex
-Fecha: 2026-09-19
-Esta prueba puede eliminarse después de verificar el push.

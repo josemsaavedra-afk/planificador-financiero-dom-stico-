@@ -129,3 +129,11 @@ Una futura migración debería mantener checkpoints de saldo por cuenta en una t
 - Fallos de IndexedDB visibles, snapshots incompletos rechazados, respuestas de refresh fuera de orden descartadas y snapshot/estado vaciados al perder membership.
 - 120 pruebas Node, incluidas 35 SQL aisladas; 20 escenarios de navegador y actualización desde los archivos Alpha 16 hasta Alpha 17. PostgreSQL real, staging y dispositivos físicos pendientes.
 - [Matriz y bloqueantes reales](ALPHA17-RC-READINESS.md) · [Preparación de staging sin desplegar](STAGING-3.0.md).
+
+## Alpha 18 · Persistence runtime
+
+- API transaccional y recibos idempotentes del servidor; revisiones de fuentes y conciliaciones. Propuesta SQL aditiva, exclusivamente ensayada en fixtures PGlite.
+- Outbox IndexedDB por contexto, leases, retries acotados, recuperación tras cierre y conflictos conservados. UI para preparar saldos/extractos/conciliaciones/revocaciones, consultar historial y revisar conflictos.
+- 154 pruebas Node, 48 SQL incluidas; 28 escenarios de navegador. PWA Alpha17→18 y ocho ensayos nuevos con reinicio real del navegador.
+- Flag remoto OFF; endpoint alojado, proveedores reales Auth/SQL, PostgreSQL multiconexión, staging y dispositivos físicos pendientes.
+- [Arquitectura, evidencia, límites y matriz RC](ALPHA18-PERSISTENCE-RUNTIME.md).

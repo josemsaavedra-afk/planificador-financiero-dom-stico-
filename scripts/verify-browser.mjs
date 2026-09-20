@@ -4,10 +4,10 @@ import { readFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-const baseline='df73b401c269b81962c621d4c74df88318d454dd';
-const oldFiles=['index.html','sw.js','manifest.webmanifest','version.json','icon-180.png','icon-192.png','icon-512.png',...execFileSync('git',['ls-tree','-r','--name-only',baseline,'src/treasury'],{encoding:'utf8'}).trim().split(/\r?\n/)];
+const baseline='76f760dcde03f9e6da737c335e50a2372056988e';
+const oldFiles=['config.js','index.html','sw.js','manifest.webmanifest','version.json','icon-180.png','icon-192.png','icon-512.png',...execFileSync('git',['ls-tree','-r','--name-only',baseline,'src/treasury'],{encoding:'utf8'}).trim().split(/\r?\n/)];
 const oldAssets=new Map(oldFiles.map(file=>['/domus-3/'+file,execFileSync('git',['show',baseline+':'+file],{maxBuffer:8*1024*1024})]));
-oldAssets.set('/domus-3/asset-manifest.js',Buffer.from('self.DOMUS3_BUILD=30016;self.DOMUS3_ASSETS='+JSON.stringify([...oldFiles.filter(f=>f!=='sw.js'),'vendor/supabase.js'])+';'));
+oldAssets.set('/domus-3/asset-manifest.js',Buffer.from('self.DOMUS3_BUILD=30017;self.DOMUS3_ASSETS='+JSON.stringify([...oldFiles.filter(f=>f!=='sw.js'),'vendor/supabase.js'])+';'));
 
 const root = path.resolve('dist');
 let workerBuild=null,failPrecache=false;
@@ -17,7 +17,7 @@ const server = createServer(async (req,res) => {
   if(pathname==='/legacy.html'){res.setHeader('Content-Type','text/html');res.end('<h1>Legacy fixture</h1>');return;}
   const file = path.resolve(root,'.'+pathname);
   if (!file.startsWith(root+path.sep)) { res.writeHead(403);res.end();return; }
-  try { let body=workerBuild===30016&&oldAssets.has(pathname)?oldAssets.get(pathname):await readFile(file);if(pathname.endsWith('/asset-manifest.js')&&workerBuild!==null)body=body.toString().replace(/DOMUS3_BUILD=\d+/, 'DOMUS3_BUILD='+workerBuild);if(pathname.endsWith('/sw.js')&&workerBuild!==null)body=body.toString()+'\n// fixture build '+workerBuild;if(failPrecache&&pathname.endsWith('/vendor/supabase.js')){res.writeHead(503);res.end();return;}res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type',mime[path.extname(file)]||'application/octet-stream');res.end(body); }
+  try { let body=workerBuild===30017&&oldAssets.has(pathname)?oldAssets.get(pathname):await readFile(file);if(pathname.endsWith('/asset-manifest.js')&&workerBuild!==null)body=body.toString().replace(/DOMUS3_BUILD=\d+/, 'DOMUS3_BUILD='+workerBuild);if(pathname.endsWith('/sw.js')&&workerBuild!==null)body=body.toString()+'\n// fixture build '+workerBuild;if(failPrecache&&pathname.endsWith('/vendor/supabase.js')){res.writeHead(503);res.end();return;}res.setHeader('Cache-Control','no-store');res.setHeader('Content-Type',mime[path.extname(file)]||'application/octet-stream');res.end(body); }
   catch {res.writeHead(404);res.end();}
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -145,7 +145,7 @@ try {
   assert.equal(mutations.filter(m=>m.kind==='login').length,1);
   await context.close();
 
-  workerBuild=30016;
+  workerBuild=30017;
   const offline=await browser.newContext();await isolate(offline);const shell=await offline.newPage();
   await shell.goto(origin+'/legacy.html');
   await shell.evaluate(async()=>{await caches.open('domus-258');await caches.open('planificador-258');});
@@ -159,28 +159,28 @@ try {
   await offline.setOffline(true);
   await shell.reload();await shell.locator('#authForm:not(.hidden)').waitFor();
   assert.equal(await shell.evaluate(()=>typeof supabase.createClient),'function');
-  assert.equal(await shell.evaluate(()=>typeof window.DOMUSTreasury3.render),'function');assert.equal(await shell.evaluate(()=>APP_BUILD),'30016');
+  assert.equal(await shell.evaluate(()=>typeof window.DOMUSTreasury3.render),'function');assert.equal(await shell.evaluate(()=>APP_BUILD),'30017');
   await offline.setOffline(false);
   await shell.evaluate(async()=>{localStorage.setItem('domus17-retained','ficticio');await kvPut('update-proof',{value:'ficticio'});});
-  workerBuild=30016;
-  await shell.evaluate(async()=>{const reg=await navigator.serviceWorker.ready;await reg.update();});
-  await poll(()=>shell.evaluate(async()=> (await caches.keys()).includes('domus3:/domus-3/:30016')),'PWA lifecycle');
-  await poll(()=>shell.evaluate(async()=> (await caches.keys()).filter(k=>k.startsWith('domus3:/domus-3/:')).length===1),'PWA lifecycle');
-  await poll(()=>shell.evaluate(async()=>{const reg=await navigator.serviceWorker.ready;return reg.active?.state==='activated'&&!reg.installing&&!reg.waiting;}),'PWA lifecycle');
   workerBuild=30017;
   await shell.evaluate(async()=>{const reg=await navigator.serviceWorker.ready;await reg.update();});
-  await poll(()=>shell.evaluate(async()=>{const keys=await caches.keys();return keys.includes('domus3:/domus-3/:30017')&&!keys.includes('domus3:/domus-3/:30016');}),'PWA lifecycle');
+  await poll(()=>shell.evaluate(async()=> (await caches.keys()).includes('domus3:/domus-3/:30017')),'PWA lifecycle');
+  await poll(()=>shell.evaluate(async()=> (await caches.keys()).filter(k=>k.startsWith('domus3:/domus-3/:')).length===1),'PWA lifecycle');
+  await poll(()=>shell.evaluate(async()=>{const reg=await navigator.serviceWorker.ready;return reg.active?.state==='activated'&&!reg.installing&&!reg.waiting;}),'PWA lifecycle');
+  workerBuild=30018;
+  await shell.evaluate(async()=>{const reg=await navigator.serviceWorker.ready;await reg.update();});
+  await poll(()=>shell.evaluate(async()=>{const keys=await caches.keys();return keys.includes('domus3:/domus-3/:30018')&&!keys.includes('domus3:/domus-3/:30017');}),'PWA lifecycle');
   assert.ok((await shell.evaluate(()=>caches.keys())).includes('domus-258'));
   await poll(()=>shell.evaluate(async()=>{const reg=await navigator.serviceWorker.ready;return reg.active?.state==='activated'&&!reg.installing&&!reg.waiting;}),'PWA lifecycle');
   assert.equal(await shell.evaluate(()=>localStorage.getItem('domus17-retained')),'ficticio');assert.equal(await shell.evaluate(async()=>(await kvGet('update-proof')).value),'ficticio');
   failPrecache=true;workerBuild=39999;
   const state=await shell.evaluate(async()=>{const reg=await navigator.serviceWorker.ready;const failed=new Promise(resolve=>reg.addEventListener('updatefound',()=>{const worker=reg.installing;worker.addEventListener('statechange',()=>{if(worker.state==='redundant')resolve(worker.state);});},{once:true}));await reg.update();return failed;});
   assert.equal(state,'redundant');
-  assert.ok((await shell.evaluate(()=>caches.keys())).includes('domus3:/domus-3/:30017'));
+  assert.ok((await shell.evaluate(()=>caches.keys())).includes('domus3:/domus-3/:30018'));
   failPrecache=false;workerBuild=null;await offline.setOffline(true);
   const manifest=JSON.parse(await readFile('manifest.webmanifest','utf8'));
   await shell.goto(new URL(manifest.start_url,origin+'/domus-3/').href);await shell.locator('#authForm:not(.hidden)').waitFor();
-  await offline.setOffline(false);await shell.reload();await shell.locator('#authForm:not(.hidden)').waitFor();assert.equal(await shell.evaluate(()=>APP_BUILD),'30017');assert.equal(await shell.evaluate(async()=>(await kvGet('update-proof')).value),'ficticio');
+  await offline.setOffline(false);await shell.reload();await shell.locator('#authForm:not(.hidden)').waitFor();assert.equal(await shell.evaluate(()=>APP_BUILD),'30018');assert.equal(await shell.evaluate(async()=>(await kvGet('update-proof')).value),'ficticio');
   await offline.close();
   const expired=await browser.newContext({viewport:{width:390,height:844}});await isolate(expired);
   const invalid=await expired.newPage();

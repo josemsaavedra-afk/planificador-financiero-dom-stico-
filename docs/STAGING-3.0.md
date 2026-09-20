@@ -67,3 +67,11 @@ El harness prepara seis carreras con conexiones independientes y observación de
 - Instalación y actualización física en Safari/iPhone y Chrome/Android; apertura desde icono, portrait/landscape, offline/online y almacenamiento bajo presión.
 - Verificar coexistencia con 2.5.8 sin alterar su origen, SW, cachés ni datos. El ensayo local conserva cachés legacy ficticias, no certifica todas las versiones desplegadas.
 - Aprobar configuración/URL y procedimiento de despliegue de staging. No hay staging publicado por esta sesión.
+
+## Actualización Alpha 18 (sin desplegar)
+
+El runtime, transporte HTTPS opcional y handler transaccional ya existen. [Contrato y matriz actual](ALPHA18-PERSISTENCE-RUNTIME.md). Queda montar el endpoint en el host aislado con verificación de sesión y una transacción SQL autenticada real. No usar contexto/actor del body como credencial ni conceder el rol ejecutor al navegador. Configurar Auth no activa el runtime.
+
+La propuesta Alpha 18 es **aditiva** sobre Alpha 16; el harness aislado aplica ambas en ese orden y prepara ocho carreras. Los archivos anteriores permanecen históricos. No ejecutar esas propuestas sobre producción ni asumir que el fixture mínimo reproduce su esquema. El rollback Alpha 18 exige ausencia de recibos, historial y revisiones avanzadas.
+
+La prueba nueva se ejecuta con pnpm run test:runtime:browser: perfil temporal Edge, IndexedDB real, PGlite ficticio y red exterior bloqueada. No requiere ni crea un proyecto Supabase. PostgreSQL real sigue detenido en preflight por ausencia de initdb.

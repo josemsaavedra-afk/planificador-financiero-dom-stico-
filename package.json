@@ -1,7 +1,7 @@
 {
   "name": "domus-3",
   "private": true,
-  "version": "3.0.0-alpha.17",
+  "version": "3.0.0-alpha.18",
   "type": "module",
   "scripts": {
     "test": "node --test",
@@ -10,7 +10,8 @@
     "test:browser": "node scripts/verify-browser.mjs",
     "test:postgres": "node scripts/verify-postgres.mjs",
     "check": "node scripts/check.mjs",
-    "audit:security": "node scripts/security-audit.mjs"
+    "audit:security": "node scripts/security-audit.mjs",
+    "test:runtime:browser": "node scripts/verify-runtime-browser.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

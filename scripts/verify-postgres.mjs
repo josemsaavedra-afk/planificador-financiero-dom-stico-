@@ -12,7 +12,7 @@ for(const command of (target?['psql']:['initdb','pg_ctl','psql']))execFileSync(c
 const dir=await mkdtemp(path.join(os.tmpdir(),'domus16-pg-'));
 const socket=net.createServer();await new Promise(r=>socket.listen(0,'127.0.0.1',r));
 const port=socket.address().port;await new Promise(r=>socket.close(r));
-const env={...process.env,PGHOST:'127.0.0.1',PGHOSTADDR:'',PGSSLMODE:'disable',PGPORT:String(port),PGUSER:'domus_fixture',PGDATABASE:'postgres',PGCONNECT_TIMEOUT:'5',PGOPTIONS:'-c statement_timeout=15000 -c lock_timeout=10000',PGPASSWORD:'',PGSERVICE:'',PGSERVICEFILE:path.join(dir,'no-service'),PGPASSFILE:path.join(dir,'no-password'),PGAPPNAME:'domus17-race',...(target||{})};
+const env={...process.env,PGHOST:'127.0.0.1',PGHOSTADDR:'',PGSSLMODE:'disable',PGPORT:String(port),PGUSER:'domus_fixture',PGDATABASE:'postgres',PGCONNECT_TIMEOUT:'5',PGOPTIONS:'-c statement_timeout=15000 -c lock_timeout=10000',PGPASSWORD:'',PGSERVICE:'',PGSERVICEFILE:path.join(dir,'no-service'),PGPASSFILE:path.join(dir,'no-password'),PGAPPNAME:'domus18-race',...(target||{})};
 function sql(text) {return new Promise((resolve,reject)=>{
  const child=spawn('psql',['-X','-A','-t','-v','ON_ERROR_STOP=1','-c',text],{env,windowsHide:true});let out='',err='';
  child.stdout.on('data',b=>out+=b);child.stderr.on('data',b=>err+=b);child.on('error',reject);
@@ -30,17 +30,18 @@ try {
  }
  await sql(await readFile('database/tests/treasury_fixture.sql','utf8'));
  await sql(await readFile('database/proposals/alpha16_prerc_up.sql','utf8'));
+ await sql(await readFile('database/proposals/alpha18_runtime_up.sql','utf8'));
  const pids=new Set();
  async function race(first,second,expectDuplicate) {
    // Hold the first transaction until the second backend visibly waits on a lock.
    const a=sql(`begin;${asActor}select 'PID:'||pg_backend_pid();${first};select pg_sleep(2);commit;`);
    a.catch(()=>{});
    let firstReady=false;
-   for(let i=0;i<100;i++){if((await sql("select count(*) from pg_stat_activity where application_name='domus17-race' and wait_event='PgSleep'")).trim()==='1'){firstReady=true;break;}await new Promise(r=>setTimeout(r,10));}
+   for(let i=0;i<100;i++){if((await sql("select count(*) from pg_stat_activity where application_name='domus18-race' and wait_event='PgSleep'")).trim()==='1'){firstReady=true;break;}await new Promise(r=>setTimeout(r,10));}
    assert.ok(firstReady,'first connection must hold its transaction');
    const b=sql(`begin;${asActor}select 'PID:'||pg_backend_pid();${second};commit;`);b.catch(()=>{});
    let blocked=false;
-   for(let i=0;i<100;i++){if(Number((await sql("select count(*) from pg_stat_activity where application_name='domus17-race' and wait_event_type='Lock'")).trim())>0){blocked=true;break;}await new Promise(r=>setTimeout(r,10));}
+   for(let i=0;i<100;i++){if(Number((await sql("select count(*) from pg_stat_activity where application_name='domus18-race' and wait_event_type='Lock'")).trim())>0){blocked=true;break;}await new Promise(r=>setTimeout(r,10));}
    const results=await Promise.allSettled([a,b]);assert.ok(blocked,'independent backend must actually wait on a lock');
    assert.equal(results[0].status,'fulfilled');
    for(const r of results)if(r.status==='fulfilled')for(const match of r.value.matchAll(/PID:(\d+)/g))pids.add(match[1]);
@@ -77,8 +78,14 @@ try {
  await assert.rejects(()=>sql('begin;'+asActor+"insert into public.account_balance_checkpoints(household_id,account_id,balance_date,balance,source,created_by) values('"+id(11)+"','"+id(101)+"','2026-09-20',1,'manual','"+id(2)+"');commit;"),/Autor/i);
  await sql('begin;'+asActor+"insert into public.account_balance_checkpoints(household_id,account_id,balance_date,balance,source,created_at) values('"+id(11)+"','"+id(101)+"','2026-09-20',1,'manual','2000-01-01');commit;");
  assert.equal((await sql("select count(*) from public.account_balance_checkpoints where created_at<'2001-01-01'")).trim(),'0');
+ const beforeRevision=Number((await sql("select treasury_revision from public.movement_series where id='"+id(201)+"'")).trim());
+ await race("select pg_advisory_xact_lock(hashtextextended('"+id(11)+"',18))", "reset role; update public.movement_series set treasury_revision=1 where id='"+id(201)+"'",false);
+ assert.ok(Number((await sql("select treasury_revision from public.movement_series where id='"+id(201)+"'")).trim())>beforeRevision,'source edit must advance version after runtime lock');
+ const receipt="set local role domus_treasury_executor; insert into private.treasury_operation_receipts(actor_id,household_id,operation_id,request,response) values('"+id(1)+"','"+id(11)+"','"+id(901)+"','{}','{}')";
+ await race(receipt,receipt,true);
+ await assert.rejects(()=>sql('begin;'+asActor+'select * from private.treasury_operation_receipts;commit;'),/permission denied/i);
  assert.ok(pids.size>=2);
- console.log('PASS: 6 PostgreSQL lock races plus rollback, identity, timestamps, cross-household reads and unchanged identical lines; independent backends.');
+ console.log('PASS: 8 PostgreSQL lock races plus rollback, identity, timestamps, cross-household reads and unchanged identical lines; independent backends.');
 } finally {
  if(started)execFileSync('pg_ctl',['-D',dir,'-m','fast','-w','stop'],{env,windowsHide:true,stdio:'pipe'});
  const resolved=path.resolve(dir),base=path.resolve(os.tmpdir())+path.sep;

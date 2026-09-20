@@ -1,3 +1,6 @@
+import { createPersistenceRuntime } from './persistence-runtime.js';
+import { createIndexedDbOutbox } from './outbox-store.js';
+import { createPersistencePanel } from './persistence-panel.js';
 import { createTreasuryPersistence } from './persistence.js';
 import { createTreasurySnapshot } from './snapshot.js';
 import { buildCheckpointDraft } from './checkpoint-draft.js';
@@ -12,14 +15,31 @@ const euro = value => new Intl.NumberFormat('es-ES', { style: 'currency', curren
 const date = value => value ? new Intl.DateTimeFormat('es-ES').format(new Date(`${value}T12:00:00`)) : 'Sin fecha prevista';
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const LABEL = { previsto: 'Previsto', pendiente: 'Pendiente hoy', vencido: 'Vencido', realizado: 'Realizado', reprogramado: 'Reprogramado', prefinanciado: 'Prefinanciado', liquidado: 'Liquidado' };
-const persistence = createTreasuryPersistence({ enabled: window.DOMUS_CONFIG?.treasuryPersistence === true });
+let persistence = createTreasuryPersistence({ enabled: window.DOMUS_CONFIG?.treasuryPersistence === true });
 const localCheckpoints = new Map();
 const statementReviews = new Map();
 let activeReviewKey = null;
 let activeContext = null;
 let renderGeneration = 0;
+let currentSnapshot = null, runtime = null, persistencePanel = null;
+// Explicit host injection + strict feature flag. No automatic network discovery.
+function configurePersistence(backend) {
+  if (runtime) throw new Error('El adaptador ya está configurado en esta sesión.');
+  if (window.DOMUS_CONFIG?.treasuryPersistence !== true || typeof backend?.execute !== 'function') throw new Error('Persistencia desactivada o sin adaptador explícito.');
+  runtime = createPersistenceRuntime({ enabled: true, backend,
+    store: createIndexedDbOutbox({ scope: new URL('.', window.location.href).pathname }),
+    getContext: () => currentSnapshot ? { userId: currentSnapshot.userId, householdId: currentSnapshot.householdId } : null,
+    onChange: () => { const root = document.getElementById('treasury3Root'); if (root && currentSnapshot) persistencePanel?.render(root); }
+  });
+  persistence = { state: runtime.mode };
+  persistencePanel = createPersistencePanel({ runtime, getSnapshot: () => currentSnapshot, esc });
+  if (currentSnapshot) renderTreasury3(currentSnapshot);
+  return runtime;
+}
 
 export function resetTreasury3() {
+  currentSnapshot = null;
+  persistencePanel?.invalidate();
   localCheckpoints.clear();
   statementReviews.clear();
   activeReviewKey = null;
@@ -57,8 +77,9 @@ function bindReconciliationReview(output, entry, generation) {
     const summary = reviewSummary(session);
     output.className = '';
     output.innerHTML = `${entry.stale ? '<div class="msg error">Los movimientos han cambiado. Esta revisión conserva las decisiones anteriores y requiere un nuevo análisis antes de confirmar.</div>' : ''}${message ? `<div class="msg ${message.kind}">${esc(message.text)}</div>` : ''}<div class="msg info">Cuenta: <strong>${esc(metadata.account.name)}</strong> · Huella ${esc(metadata.fingerprint.contentSha256.slice(0, 12))}… · Análisis inicial: ${metadata.automatic.propuesto} propuestas, ${metadata.automatic.ambiguo} ambiguas, ${metadata.automatic.revisar} para revisar y ${metadata.automatic.sin_coincidencia} sin coincidencia.</div><div class="section-title treasury-review-summary"><div><strong>${summary.total} líneas</strong> · ${summary.confirmada} confirmadas localmente · ${summary.descartada} descartadas · ${summary.pendiente} pendientes. Nada ha sido guardado.</div><button class="btn" type="button" data-download-review>Descargar informe</button></div><div class="table-wrap" tabindex="0" role="region" aria-label="Tabla desplazable horizontalmente"><table class="table"><thead><tr><th>Fecha</th><th>Extracto</th><th>Importe</th><th>Estado</th><th>Movimiento DOMUS</th><th>Decisión</th></tr></thead><tbody>${reconciliationRows(session)}</tbody></table></div>`;
+    persistencePanel?.bindReview(output, entry);
     output.querySelectorAll('[data-review-select]').forEach(select => select.onchange = () => { if (generation !== renderGeneration || entry.stale) return; try { session = selectReviewCandidate(session, select.dataset.reviewSelect, select.value); render(); } catch (error) { render({ kind: 'error', text: error.message }); } });
-    output.querySelectorAll('[data-review-confirm]').forEach(button => button.onclick = () => { if (generation !== renderGeneration || entry.stale) return; try { session = decideReview(session, button.dataset.reviewConfirm, 'confirmada'); render({ kind: 'ok', text: 'Coincidencia confirmada solo para esta revisión local.' }); } catch (error) { render({ kind: 'error', text: error.message }); } });
+    output.querySelectorAll('[data-review-confirm]').forEach(button => button.onclick = () => { if (generation !== renderGeneration || entry.stale) return; try { persistencePanel?.captureDecision(entry, button.dataset.reviewConfirm, session); session = decideReview(session, button.dataset.reviewConfirm, 'confirmada'); render({ kind: 'ok', text: 'Coincidencia confirmada solo para esta revisión local.' }); } catch (error) { render({ kind: 'error', text: error.message }); } });
     output.querySelectorAll('[data-review-discard]').forEach(button => button.onclick = () => { try { session = decideReview(session, button.dataset.reviewDiscard, 'descartada'); render(); } catch (error) { render({ kind: 'error', text: error.message }); } });
     if (entry.stale) output.querySelectorAll('[data-review-confirm], [data-review-select], [data-review-discard]').forEach(control => control.disabled = true);
     output.querySelector('[data-download-review]').onclick = () => {
@@ -72,6 +93,7 @@ function bindReconciliationReview(output, entry, generation) {
 function bindBalanceCapture(root, snapshot, vm, generation) {
   root.querySelectorAll('[data-balance-account]').forEach(box => {
     const account = (snapshot.accounts || []).find(item => item.id === box.dataset.balanceAccount), output = box.querySelector('[data-balance-result]');
+    persistencePanel?.bindCheckpoint(box, account, vm.today);
     box.querySelector('[data-download-checkpoint]').onclick = () => {
       if (generation !== renderGeneration) return;
       try {
@@ -97,10 +119,11 @@ export function renderTreasury3(snapshot) {
   const root = document.getElementById('treasury3Root'); if (!root || !snapshot) return null;
   const context = JSON.stringify([snapshot.userId || null, snapshot.householdId || null]);
   if (context !== activeContext) { resetTreasury3(); activeContext = context; }
+  currentSnapshot = snapshot;
   const generation = ++renderGeneration;
   const sourceAccounts = (snapshot.accounts || []).filter(account => snapshot.householdId && account.household_id === snapshot.householdId), accounts = sourceAccounts.map(account => accountWithLocalCheckpoint(account, localCheckpoints.get(account.id)));
   const vm = createTreasuryViewModel(snapshot.rows || [], accounts, snapshot.asOf || new Date());
-  root.innerHTML = `<div class="treasury3-note"><strong>Tesorería 3.0 · Alpha 17</strong> · Los saldos reales y las previsiones se muestran por separado.<p role="status" data-persistence-mode="${persistence.state()}">${persistence.state() === 'local' ? 'Modo local: persistencia remota desactivada.' : persistence.state() === 'persistent' ? 'Modo persistente: backend explícito habilitado.' : 'Persistencia bloqueada: falta un backend explícito. Continúas en modo borrador.'}</p></div><div class="treasury-status-grid">${statusCards(vm)}</div><div class="grid two treasury3-panels"><div class="card"><h2>Próximo cobro previsto</h2><div class="value">${date(vm.nextIncomeDate)}</div><p>Ingresos: <strong>${euro(vm.nextIncome.income)}</strong> · ${vm.nextIncome.count} movimiento(s)</p><hr><h3>Pagos pendientes hasta entonces</h3><div class="value">${euro(vm.dueBeforeIncomeTotals.expense)}</div><p>${vm.dueBeforeIncomeTotals.count} movimiento(s). Incluye vencidos aún pendientes.</p></div><div class="card"><h2>Saldo calculado por cuenta</h2><p class="muted">Solo se calcula si existe saldo inicial confirmado y fecha. “Flujo real” incluye únicamente movimientos realizados, prefinanciados o liquidados.</p><div class="table-wrap" tabindex="0" role="region" aria-label="Tabla desplazable horizontalmente"><table class="table"><thead><tr><th>Cuenta</th><th>Saldo calculado</th><th>Flujo real</th><th>Mov.</th></tr></thead><tbody>${accountRows(vm)}</tbody></table></div></div></div><div class="card"><h2>Saldos iniciales y cuadre local</h2><p class="muted">El borrador descargable permite revisar el saldo introducido y no lo guarda. Estos datos viven solo en esta pestaña. Sirven para comprobar diferencias y no corrigen movimientos ni se guardan en Supabase.</p>${balanceCaptureRows(sourceAccounts, vm.today)}</div><div class="card"><h2>Previsión acumulada</h2><div class="table-wrap" tabindex="0" role="region" aria-label="Tabla desplazable horizontalmente"><table class="table"><thead><tr><th>Horizonte</th><th>Ingresos</th><th>Pagos</th><th>Neto</th><th>Mov.</th></tr></thead><tbody>${horizonRows(vm)}</tbody></table></div></div><div class="card"><div class="section-title"><div><h2>Conciliación provisional de extracto</h2><p class="muted">El CSV se procesa solo en este navegador. Cada coincidencia requiere una decisión manual y no se guarda.</p></div><label class="btn">Seleccionar CSV<input id="treasuryCsv" type="file" accept=".csv,text/csv" hidden></label></div><div id="treasuryCsvResult" class="empty">Columnas admitidas: fecha, concepto y importe; o fecha, concepto, cargo y abono.</div></div><div id="treasury3Detail" class="card hidden"><div class="section-title"><h2 id="treasury3DetailTitle">Desglose</h2><button class="btn" type="button" id="treasury3Close">Cerrar</button></div><div class="table-wrap" tabindex="0" role="region" aria-label="Tabla desplazable horizontalmente"><table class="table"><thead><tr><th>Fecha</th><th>Estado</th><th>Concepto</th><th>Tipo</th><th>Importe</th></tr></thead><tbody id="treasury3DetailBody"></tbody></table></div></div>`;
+  root.innerHTML = `<div class="treasury3-note"><strong>Tesorería 3.0 · Alpha 18</strong> · Los saldos reales y las previsiones se muestran por separado.<p role="status" data-persistence-mode="${persistence.state()}">${persistence.state() === 'local' ? 'Modo local: persistencia remota desactivada.' : persistence.state() === 'persistent' ? 'Modo persistente: backend explícito habilitado.' : 'Persistencia bloqueada: falta un backend explícito. Continúas en modo borrador.'}</p></div><div class="treasury-status-grid">${statusCards(vm)}</div><div class="grid two treasury3-panels"><div class="card"><h2>Próximo cobro previsto</h2><div class="value">${date(vm.nextIncomeDate)}</div><p>Ingresos: <strong>${euro(vm.nextIncome.income)}</strong> · ${vm.nextIncome.count} movimiento(s)</p><hr><h3>Pagos pendientes hasta entonces</h3><div class="value">${euro(vm.dueBeforeIncomeTotals.expense)}</div><p>${vm.dueBeforeIncomeTotals.count} movimiento(s). Incluye vencidos aún pendientes.</p></div><div class="card"><h2>Saldo calculado por cuenta</h2><p class="muted">Solo se calcula si existe saldo inicial confirmado y fecha. “Flujo real” incluye únicamente movimientos realizados, prefinanciados o liquidados.</p><div class="table-wrap" tabindex="0" role="region" aria-label="Tabla desplazable horizontalmente"><table class="table"><thead><tr><th>Cuenta</th><th>Saldo calculado</th><th>Flujo real</th><th>Mov.</th></tr></thead><tbody>${accountRows(vm)}</tbody></table></div></div></div><div class="card"><h2>Saldos iniciales y cuadre local</h2><p class="muted">El borrador descargable permite revisar el saldo introducido y no lo guarda. Estos datos viven solo en esta pestaña. Sirven para comprobar diferencias y no corrigen movimientos ni se guardan en Supabase.</p>${balanceCaptureRows(sourceAccounts, vm.today)}</div><div class="card"><h2>Previsión acumulada</h2><div class="table-wrap" tabindex="0" role="region" aria-label="Tabla desplazable horizontalmente"><table class="table"><thead><tr><th>Horizonte</th><th>Ingresos</th><th>Pagos</th><th>Neto</th><th>Mov.</th></tr></thead><tbody>${horizonRows(vm)}</tbody></table></div></div><div class="card"><div class="section-title"><div><h2>Conciliación provisional de extracto</h2><p class="muted">El CSV se procesa solo en este navegador. Cada coincidencia requiere una decisión manual y no se guarda.</p></div><label class="btn">Seleccionar CSV<input id="treasuryCsv" type="file" accept=".csv,text/csv" hidden></label></div><div id="treasuryCsvResult" class="empty">Columnas admitidas: fecha, concepto y importe; o fecha, concepto, cargo y abono.</div></div><div id="treasury3Detail" class="card hidden"><div class="section-title"><h2 id="treasury3DetailTitle">Desglose</h2><button class="btn" type="button" id="treasury3Close">Cerrar</button></div><div class="table-wrap" tabindex="0" role="region" aria-label="Tabla desplazable horizontalmente"><table class="table"><thead><tr><th>Fecha</th><th>Estado</th><th>Concepto</th><th>Tipo</th><th>Importe</th></tr></thead><tbody id="treasury3DetailBody"></tbody></table></div></div>`;
   const accountSelect = document.createElement('select');
   accountSelect.id = 'treasuryCsvAccount'; accountSelect.className = 'treasury-review-select'; accountSelect.setAttribute('aria-label', 'Cuenta del extracto');
   accountSelect.innerHTML = '<option value="">Cuenta del extracto…</option>'+sourceAccounts.map(account => `<option value="${esc(account.id)}">${esc(account.name || 'Cuenta sin nombre')}</option>`).join('');
@@ -131,17 +154,18 @@ export function renderTreasury3(snapshot) {
       const text = await file.text(), fingerprint = await createStatementFingerprint(account.id, text);
       if (generation !== renderGeneration) return;
       const existing = statementReviews.get(fingerprint.duplicateKey);
-      if (existing && !existing.stale) { showReview(fingerprint.duplicateKey); return; }
+      if (existing && !existing.stale && !existing.needsPersistentReview) { showReview(fingerprint.duplicateKey); return; }
       const rows = parseStatementCsv(text), results = reconcileStatement(rows, movementsForStatementAccount(vm.real, account.id));
       // A changed source creates a new review; the previous decisions remain downloadable.
       const key = existing ? fingerprint.duplicateKey + ':revision:' + (statementReviews.size + 1) : fingerprint.duplicateKey;
-      statementReviews.set(key, { session: createReviewSession(results), signature: signature(account.id), metadata: { account, fileName: file.name, fingerprint, automatic: reconciliationSummary(results) } });
+      statementReviews.set(key, { session: createReviewSession(results), signature: signature(account.id), metadata: { account, fileName: file.name, csv: text, fingerprint, automatic: reconciliationSummary(results) } });
       activeReviewKey = key; renderTreasury3(snapshot);
     } catch (error) { if (generation === renderGeneration) { output.className = 'msg error'; output.textContent = error.message; } }
     finally { event.target.value = ''; }
   };
   bindBalanceCapture(root, { ...snapshot, accounts: sourceAccounts }, vm, generation);
-  bindDetails(root, vm); return vm;
+  bindDetails(root, vm);
+  persistencePanel?.render(root); return vm;
 }
-window.DOMUSTreasury3 = { render: renderTreasury3, reset: resetTreasury3, snapshot: createTreasurySnapshot };
+window.DOMUSTreasury3 = { render: renderTreasury3, reset: resetTreasury3, snapshot: createTreasurySnapshot, configurePersistence };
 window.dispatchEvent(new CustomEvent('domus-treasury3-ready'));

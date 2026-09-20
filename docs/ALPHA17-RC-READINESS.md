@@ -1,5 +1,7 @@
 # Alpha 17 · RC readiness
 
+Informe histórico. Estado posterior y cierre aislado de los tres mecanismos: [Alpha 18 persistence runtime](ALPHA18-PERSISTENCE-RUNTIME.md).
+
 Versión `3.0.0-alpha.17`, build `30017`. Fecha: 2026-09-20. **Sigue siendo Alpha; no se declara RC1.**
 
 ## Estado inicial y verificación

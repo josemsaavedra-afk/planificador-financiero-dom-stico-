@@ -1,6 +1,6 @@
 import {readFileSync,readdirSync} from 'node:fs';
 import assert from 'node:assert/strict';
-const runtime=['index.html','config.js','sw.js','manifest.webmanifest',...readdirSync('src/treasury').filter(f=>f.endsWith('.js')).map(f=>'src/treasury/'+f)];
+const runtime=['index.html','config.js','sw.js','manifest.webmanifest',...readdirSync('src/treasury').filter(f=>f.endsWith('.js')).map(f=>'src/treasury/'+f),...readdirSync('server').filter(f=>f.endsWith('.js')).map(f=>'server/'+f)];
 const forbidden=[/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,/sb_secret_[A-Za-z0-9_-]+/,/service_role/,/https:\/\/[a-z0-9-]+\.supabase\.co/,/console\.log\(/];
 for(const file of runtime){const source=readFileSync(file,'utf8');for(const pattern of forbidden)assert.doesNotMatch(source,pattern,'Runtime security gate: '+file);}
 // Only counts/locations are emitted, never matched token/key values.

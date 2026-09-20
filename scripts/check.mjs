@@ -4,7 +4,7 @@ import { Script } from 'node:vm';
 import assert from 'node:assert/strict';
 const read=file=>readFileSync(file,'utf8');
 const files=['sw.js','config.js'];
-for(const dir of ['src/treasury','test','scripts'])for(const name of readdirSync(dir))if(/\.m?js$/.test(name))files.push(dir+'/'+name);
+for(const dir of ['src/treasury','server','test','scripts'])for(const name of readdirSync(dir))if(/\.m?js$/.test(name))files.push(dir+'/'+name);
 for(const file of files)execFileSync(process.execPath,['--check',file]);
 const html=read('index.html');let inline=0;
 for(const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi))if(!match[1].includes('src=')&&match[2].trim()){new Script(match[2]);inline++;}

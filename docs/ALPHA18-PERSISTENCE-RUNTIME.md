@@ -1,5 +1,7 @@
 # Alpha 18 · Persistence runtime
 
+Informe histórico. La continuación [Alpha 19](ALPHA19-SERVER-BOUNDARY.md) implementa los adaptadores de servidor; mantiene pendientes despliegue y validación real aislada.
+
 Versión `3.0.0-alpha.18`, build `30018`. Fecha: 2026-09-20. Rama exclusiva `domus-3.0`. **No es RC1 ni una autorización de puesta en servicio. Persistencia remota real desactivada.**
 
 Punto de partida verificado mediante fetch: HEAD/origin `76f760dcde03f9e6da737c335e50a2372056988e`, árbol limpio. Antes de editar: 120/120 Node, 35 SQL incluidas, 20 escenarios de navegador, build, sintaxis y seguridad Alpha 17 correctos.

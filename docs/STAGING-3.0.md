@@ -75,3 +75,7 @@ El runtime, transporte HTTPS opcional y handler transaccional ya existen. [Contr
 La propuesta Alpha 18 es **aditiva** sobre Alpha 16; el harness aislado aplica ambas en ese orden y prepara ocho carreras. Los archivos anteriores permanecen históricos. No ejecutar esas propuestas sobre producción ni asumir que el fixture mínimo reproduce su esquema. El rollback Alpha 18 exige ausencia de recibos, historial y revisiones avanzadas.
 
 La prueba nueva se ejecuta con pnpm run test:runtime:browser: perfil temporal Edge, IndexedDB real, PGlite ficticio y red exterior bloqueada. No requiere ni crea un proyecto Supabase. PostgreSQL real sigue detenido en preflight por ausencia de initdb.
+
+## Actualización Alpha 19
+
+Los adaptadores HTTP, verificación Auth y transacción de pool se componen en server/treasury-service.js, sin listener ni conexiones automáticas. [Contrato, montaje y límites](ALPHA19-SERVER-BOUNDARY.md). Proporcionar exclusivamente proveedores aislados autorizados, configurar timeouts/tamaño del pool y verificar esquema, RLS y sesiones antes de activar. Nada de esto configura o despliega producción.

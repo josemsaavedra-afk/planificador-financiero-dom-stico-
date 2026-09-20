@@ -6,7 +6,7 @@ const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 
 test('ofrece recuperación de contraseña desde el acceso', () => {
   assert.match(html, /id="forgotPasswordBtn"/);
-  assert.match(html, /resetPasswordForEmail\(email,\{redirectTo:location\.origin\+location\.pathname\}\)/);
+  assert.match(html, /resetPasswordForEmail\(email,\{redirectTo:authRedirectUrl\(\)\}\)/);
 });
 
 test('procesa el evento seguro de recuperación y actualiza la contraseña', () => {

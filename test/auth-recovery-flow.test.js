@@ -10,7 +10,7 @@ function fixture() {
   const element=id=>{if(!elements.has(id)){const hidden=new Set();elements.set(id,{value:'',disabled:false,classList:{add:s=>hidden.add(s),remove:s=>hidden.delete(s),contains:s=>hidden.has(s)}});}return elements.get(id);};
   const context={user:{id:'a'},session:null,passwordRecoveryMode:true,recoveryUserId:'a',recoverySaving:false,
     document:{getElementById:element},msg:(_id,text)=>messages.push(text),setBusy:(el,b)=>el.disabled=b,
-    friendlyAuthError:s=>s,routeBySession:async()=>{},sb:{auth:{}},window:{DOMUSTreasury3:{reset(){}}},setTimeout(){},
+    authRedirectUrl:()=> 'https://fixture.invalid/domus-3/index.html',friendlyAuthError:s=>s,routeBySession:async()=>{},sb:{auth:{}},window:{DOMUSTreasury3:{reset(){}}},setTimeout(){},
     history:{replaceState(){}},location:{pathname:'/domus-3/index.html'}};
   return {context,element,messages};
 }

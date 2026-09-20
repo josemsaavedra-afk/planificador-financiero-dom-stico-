@@ -5,7 +5,7 @@ import path from 'node:path';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const output = path.join(root, 'dist', 'domus-3');
 await mkdir(output, { recursive: true });
-const files = ['index.html', 'manifest.webmanifest', 'version.json', 'sw.js', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
+const files = ['config.js', 'index.html', 'manifest.webmanifest', 'version.json', 'sw.js', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 for (const name of await readdir(path.join(root, 'src', 'treasury'))) if (name.endsWith('.js')) files.push('src/treasury/' + name);
 for (const file of files) {
   await mkdir(path.dirname(path.join(output, file)), { recursive: true });

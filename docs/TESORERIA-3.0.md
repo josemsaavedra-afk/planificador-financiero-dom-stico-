@@ -121,3 +121,11 @@ Una futura migración debería mantener checkpoints de saldo por cuenta en una t
 - Conflictos offline conservados, sincronización simultánea unificada, cancelación de recuperación y mejoras de teclado/labels.
 - 103 pruebas Node (28 SQL aisladas), 12 escenarios de navegador y cuatro tamaños de pantalla. PostgreSQL real multiconexión sigue pendiente; harness local preparado.
 - [Auditoría, pruebas y bloqueantes para RC](ALPHA16-AUDITORIA.md).
+
+## Alpha 17 · RC readiness
+
+- Configuración pública explícita sin backend por defecto. Flag y kill switch del nuevo contrato; UI local o bloqueada mientras no haya adaptador remoto.
+- Adaptador SQL transaccional probado con PGlite: importación atómica, líneas idénticas, confirmación, revocación, idempotencia, rollback y respuesta perdida. No hay transporte hacia producción ni API remota conectada.
+- Fallos de IndexedDB visibles, snapshots incompletos rechazados, respuestas de refresh fuera de orden descartadas y snapshot/estado vaciados al perder membership.
+- 120 pruebas Node, incluidas 35 SQL aisladas; 20 escenarios de navegador y actualización desde los archivos Alpha 16 hasta Alpha 17. PostgreSQL real, staging y dispositivos físicos pendientes.
+- [Matriz y bloqueantes reales](ALPHA17-RC-READINESS.md) · [Preparación de staging sin desplegar](STAGING-3.0.md).

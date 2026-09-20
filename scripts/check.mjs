@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { Script } from 'node:vm';
 import assert from 'node:assert/strict';
 const read=file=>readFileSync(file,'utf8');
-const files=['sw.js'];
+const files=['sw.js','config.js'];
 for(const dir of ['src/treasury','test','scripts'])for(const name of readdirSync(dir))if(/\.m?js$/.test(name))files.push(dir+'/'+name);
 for(const file of files)execFileSync(process.execPath,['--check',file]);
 const html=read('index.html');let inline=0;
@@ -11,7 +11,7 @@ for(const match of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi))if(!
 const version=JSON.parse(read('version.json')),pkg=JSON.parse(read('package.json')),manifest=JSON.parse(read('manifest.webmanifest'));
 assert.equal(pkg.version,version.version);assert.ok(html.includes(`APP_BUILD='${version.build}'`));
 assert.equal(manifest.scope,'./');assert.equal(manifest.id,'./');
-for(const file of ['index.html','sw.js','manifest.webmanifest',...files.filter(f=>f.startsWith('src/'))])assert.doesNotMatch(read(file),/localhost|127\.0\.0\.1|index-258\.html|TODO|FIXME/);
+for(const file of ['config.js','index.html','sw.js','manifest.webmanifest',...files.filter(f=>f.startsWith('src/'))])assert.doesNotMatch(read(file),/localhost|127\.0\.0\.1|index-258\.html|TODO|FIXME/);
 const built=read('dist/domus-3/asset-manifest.js');const context={self:{}};new Script(built).runInNewContext(context);
 assert.equal(context.self.DOMUS3_BUILD,version.build);
 const allowed=new Set([...context.self.DOMUS3_ASSETS,'asset-manifest.js','sw.js']);

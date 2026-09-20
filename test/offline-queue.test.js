@@ -23,3 +23,13 @@ test('un cambio de hogar antes del envío conserva la operación sin enviarla',a
   const f=fixture(()=>assert.fail('foreign context sent'));f.ctx.household={id:'other'};
   assert.equal(await f.ctx.flushOfflineQueue(),false);assert.equal(f.ops.length,1);
 });
+test('fallo de IndexedDB no se interpreta como cola vacía sincronizada',async()=>{
+ const f=fixture(()=>assert.fail('no send'));f.ctx.queuedOps=async()=>{throw Error('IndexedDB corrupto');};
+ assert.equal(await f.ctx.flushOfflineQueue(),false);assert.match(f.ctx.syncQueueError,/cola local/);assert.equal(f.ops.length,1);
+});
+test('snapshot incompleto, de otra cuenta o con filas de otro hogar se rechaza',()=>{
+ const ctx={};runInNewContext(html.split('\n').find(s=>s.startsWith('function validOfflineSnapshot(')),ctx);
+ const valid={user_id:'a',household:{id:'h'},membership:{member:{user_id:'a',household_id:'h'}},people:[],accounts:[{household_id:'h'}],categories:[],documents:[],series:[],states:[],members:[],onlogistOperations:[],movementLinks:[]};
+ assert.equal(ctx.validOfflineSnapshot(valid,'a'),true);
+ for(const patch of [{states:'broken'},{states:[null]},{user_id:'b'},{accounts:[{household_id:'foreign'}]},{membership:null}])assert.equal(Boolean(ctx.validOfflineSnapshot({...valid,...patch},'a')),false);
+});

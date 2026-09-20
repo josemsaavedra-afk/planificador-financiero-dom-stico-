@@ -113,3 +113,11 @@ Una futura migración debería mantener checkpoints de saldo por cuenta en una t
 - Tablas desplazables dentro de las tarjetas y formularios a 390 px; checkpoints y revisión bancaria probados en navegador.
 - Paginación de estados históricos verificada con 1.201 registros; protección frente a respuestas de otro contexto de usuario/hogar.
 - 95 pruebas Node y cuatro escenarios de navegador. Persistencia SQL sigue siendo propuesta; no es aún RC. [Resultados, reproducción y pendientes](ALPHA15-AUDITORIA.md).
+
+## Alpha 16 · PRE-RC
+
+- Propuesta consolidada `alpha16_prerc_up.sql` para instalación futura nueva: FK compuestas, cuenta de conciliación derivada y grants mínimos explícitos. Sustituye como candidata a las anteriores; no es una actualización incremental.
+- Rollback vacío probado y bloqueado si existe historial. No se modifica el movimiento original ni se activa persistencia.
+- Conflictos offline conservados, sincronización simultánea unificada, cancelación de recuperación y mejoras de teclado/labels.
+- 103 pruebas Node (28 SQL aisladas), 12 escenarios de navegador y cuatro tamaños de pantalla. PostgreSQL real multiconexión sigue pendiente; harness local preparado.
+- [Auditoría, pruebas y bloqueantes para RC](ALPHA16-AUDITORIA.md).

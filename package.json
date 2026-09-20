@@ -1,13 +1,15 @@
 {
   "name": "domus-3",
   "private": true,
-  "version": "3.0.0-alpha.15",
+  "version": "3.0.0-alpha.16",
   "type": "module",
   "scripts": {
     "test": "node --test",
     "test:rls": "node --test test/treasury-rls.test.js",
     "build": "node scripts/build.mjs",
-    "test:browser": "node scripts/verify-browser.mjs"
+    "test:browser": "node scripts/verify-browser.mjs",
+    "test:postgres": "node scripts/verify-postgres.mjs",
+    "check": "node scripts/check.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

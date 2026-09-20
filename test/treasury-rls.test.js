@@ -6,8 +6,8 @@ import { PGlite } from '@electric-sql/pglite';
 // No URL, credentials, persistent data directory or external database accepted.
 const db = new PGlite();
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
-const up = read('../database/proposals/alpha13_treasury_persistence_up.sql');
-const down = read('../database/proposals/alpha13_treasury_persistence_down.sql');
+const up = read('../database/proposals/alpha16_prerc_up.sql');
+const down = read('../database/proposals/alpha16_prerc_down.sql');
 const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const tables = ['account_balance_checkpoints', 'bank_statement_imports', 'bank_statement_lines', 'treasury_reconciliations'];
 
@@ -200,20 +200,19 @@ test('las referencias impiden borrar historial por cascada incluso al propietari
   }
 });
 
-test('regresión: las correlaciones antiguas de saldo e importación admiten cruces con membresía doble', async () => {
+test('las FK compuestas rechazan cruces incluso ante una política correlacionada incorrecta', async () => {
   await db.exec('reset role');
   await db.exec(`alter policy account_balance_checkpoints_insert on public.account_balance_checkpoints
     with check (created_by=auth.uid() and private.is_household_member(household_id)
       and exists (select 1 from public.accounts a where a.id=account_id and a.household_id=household_id))`);
   await asUser(3);
-  const { rows } = await checkpoint({ account_id: id(102) });
-  assert.equal(rows[0].household_id, id(11));
+  await rejected(() => checkpoint({ account_id: id(102) }), '23503');
   await db.exec('reset role');
   await db.exec(`alter policy bank_statement_imports_insert on public.bank_statement_imports
     with check (imported_by=auth.uid() and private.is_household_member(household_id)
       and exists (select 1 from public.accounts a where a.id=account_id and a.household_id=household_id))`);
   await asUser(3);
-  assert.equal((await bankImport({ account_id: id(102) })).rows[0].household_id, id(11));
+  await rejected(() => bankImport({ account_id: id(102) }), '23503');
   // Transaction rollback restores the corrected policy after demonstrating the bug.
 });
 
@@ -289,4 +288,53 @@ test('solicitudes simultáneas encoladas: una inserción gana y solo una revocac
     assert.equal((await scratch.query('select * from public.bank_statement_lines')).rows.length,2);
     assert.equal((await scratch.query('select status from public.treasury_reconciliations')).rows[0].status,'revoked');
   } finally { await scratch.close(); }
+});
+
+
+test('cuentas y movimientos base respetan aislamiento y doble membresia', async()=>{
+ for(const actor of [1,2,3,5]) {await asUser(actor);for(const table of ['accounts','movement_series']) {
+ const rows=(await db.query('select * from public.'+table)).rows;
+ assert.equal(rows.length,actor===1?2:actor===2?1:actor===3?3:0);
+ if(actor===1||actor===2)assert.ok(rows.every(r=>r.household_id===id(actor===1?11:12)));
+ }}
+});
+test('revocar membresia elimina lecturas y escrituras posteriores sin borrar historial', async()=>{
+ await reconciliation();await db.exec('reset role');
+ await db.query('delete from public.household_members where user_id=$1',[id(1)]);await asUser(1);
+ for(const table of [...tables,'accounts','movement_series'])assert.equal((await db.query('select * from public.'+table)).rows.length,0);
+ await rejected(()=>checkpoint(),'42501');await rejected(()=>line(),'42501');await rejected(()=>reconciliation(),'42501');
+ assert.equal((await db.query("update public.treasury_reconciliations set status='revoked',revoked_by=auth.uid(),revocation_reason='denegado' returning id")).rows.length,0);
+ await asUser(4);assert.equal((await db.query('select * from public.treasury_reconciliations')).rows.length,1);
+});
+test('identidad de padres y cuenta derivada no pueden romper una conciliacion existente',async()=>{
+ const row=(await reconciliation()).rows[0];assert.equal(row.account_id,id(101));
+ await rejected(()=>db.query("update public.treasury_reconciliations set account_id=$1,status='revoked',revoked_by=auth.uid(),revocation_reason='Prueba' where id=$2",[id(103),row.id]),'42501');
+ await db.exec('reset role');
+ await rejected(()=>db.query('update public.accounts set household_id=$1 where id=$2',[id(12),id(101)]),['23503','23001']);
+ await rejected(()=>db.query('update public.movement_series set account_id=$1 where id=$2',[id(103),id(201)]),['23503','23001']);
+ await rejected(()=>db.query('update public.movement_series set household_id=$1 where id=$2',[id(12),id(201)]),['23503','23001']);
+});
+test('rollback PRE-RC se niega a eliminar historial',async()=>{
+ const scratch=new PGlite();try{
+ await scratch.exec(read('../database/tests/treasury_fixture.sql'));await scratch.exec(up);
+ await scratch.exec('set role authenticated');await scratch.query("select set_config('request.jwt.claim.sub',$1,false)",[id(1)]);
+ await scratch.query("insert into public.account_balance_checkpoints(household_id,account_id,balance_date,balance,source) values ($1,$2,'2026-09-19',1,'manual')",[id(11),id(101)]);
+ await scratch.exec('reset role');await assert.rejects(()=>scratch.exec(down),/Rollback bloqueado/);await scratch.exec('rollback');
+ assert.equal((await scratch.query('select count(*)::int n from public.account_balance_checkpoints')).rows[0].n,1);
+ }finally{await scratch.close();}
+});
+
+
+test('la propuesta neutraliza permisos por defecto demasiado amplios',async()=>{
+ const scratch=new PGlite();try{
+ await scratch.exec(read('../database/tests/treasury_fixture.sql'));
+ await scratch.exec('alter default privileges in schema public grant all on tables to authenticated, anon');
+ await scratch.exec(up);
+ for(const table of tables){
+ assert.equal((await scratch.query("select has_table_privilege('anon',$1,'SELECT') as allowed",['public.'+table])).rows[0].allowed,false);
+ assert.equal((await scratch.query("select has_table_privilege('authenticated',$1,'DELETE') as allowed",['public.'+table])).rows[0].allowed,false);
+ assert.equal((await scratch.query("select has_table_privilege('authenticated',$1,'TRUNCATE') as allowed",['public.'+table])).rows[0].allowed,false);
+ }
+ await scratch.exec(down);
+ }finally{await scratch.close();}
 });

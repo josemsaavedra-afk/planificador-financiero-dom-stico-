@@ -1,81 +1,149 @@
-# Preparación de staging DOMUS 3.0 (sin despliegue)
+# Staging independiente de DOMUS 3.0
 
-Alpha 17 no configura ni publica infraestructura. Estas instrucciones son para una ejecución posterior autorizada, con usuarios/datos ficticios y un proyecto Auth/base aislado. Nunca reutilizar el proyecto de producción para comprobarlas.
+Estado: preparado para una publicación estática posterior autorizada. **No desplegado.** Se conserva **3.0.0-alpha.19 / build 30019**, desde `0c98701e88dd6ebccbaa0daaafbd5dd226b1ae80`, rama exclusiva `domus-3.0`. No se crea Alpha 20 ni se activa persistencia remota.
 
-## Paquete y origen
+## Qué se publica y qué funciona inicialmente
 
-1. Elegir un origen HTTPS exclusivo de DOMUS 3.0; conservar el subdirectorio `/domus-3/`. Ejemplo de forma: `https://staging-domus.example/domus-3/index.html`. No sustituir la raíz de 2.5.8 ni instalar un worker en su scope.
-2. Instalar dependencias con `pnpm install --frozen-lockfile --ignore-scripts`, ejecutar `pnpm test`, `pnpm run build`, `pnpm run check` y `pnpm run audit:security`. Los ensayos de navegador requieren Edge local en Windows y el commit Alpha 16 disponible en Git.
-3. Publicar en el futuro únicamente el contenido generado bajo `dist/`, manteniendo la carpeta `domus-3`. No publicar el repositorio, HTML históricos, SQL, pruebas, node_modules ni archivos de entorno. El build actual contiene 25 archivos y el inventario se comprueba automáticamente.
-4. Servir `sw.js`, `asset-manifest.js`, `config.js`, HTML y manifest sin caché HTTP persistente; los recursos del shell tienen caché del worker por build. Entregar MIME JavaScript, JSON/manifest y PNG correctos. Redirigir `/domus-3/` a `index.html` o servirlo como documento índice. La aplicación usa vistas internas, no requiere fallback de rutas SPA desconocidas.
-5. Subir un paquete coherente de forma atómica; incrementar build cuando cambien código o configuración pública. No servir `Service-Worker-Allowed: /`. Verificar scope `/domus-3/`, nombre DOMUS 3 e identidad relativa del manifest. El origen separado evita interferencias de un worker 2.5.8 de scope raíz.
+El build portable genera `dist/domus-3/`. Se publica **dist como raíz**, conservando la carpeta `domus-3`. Entrada canónica: **ORIGEN_HTTPS_DEL_STAGING + /domus-3/index.html**. El origen aún no se ha elegido; no existe una URL de despliegue fijada en código.
 
-## Configuración pública y Auth
+El paquete inicial arranca sin Supabase: muestra el aviso de backend sin configurar, desactiva Auth y permite comprobar carga, assets, manifest, instalación y shell offline. No permite entrar con cuentas ni demuestra operaciones financieras reales. No es RC1 ni un staging funcional con backend. OCR/PDF usa recursos externos de jsDelivr; esas funciones no tienen garantía offline.
 
-El archivo fuente `config.js` se distribuye vacío de backend. Con ese valor el acceso muestra un mensaje de configuración, desactiva los botones Auth y no crea cliente Supabase. No hay fallback al antiguo proyecto de producción.
+No se publican el repositorio completo, HTML 2.x, SQL, tests, `server/`, node_modules, archivos de entorno ni credenciales. Los adaptadores de servidor Alpha 19 **no se despliegan** en este hosting estático. La salida actual contiene 31 archivos comprobados por inventario.
 
-Preparar, exclusivamente para el proyecto aislado, este archivo público antes de generar el paquete:
+## Requisitos
+
+- Proyecto de hosting **nuevo e independiente**; origen HTTPS distinto del de DOMUS 2.5.8. No reutilizar su proyecto, dominio, alias, despliegue ni credenciales.
+- Rama de origen `domus-3.0`; comprobar SHA y árbol limpio antes de publicar. No hacer merge a main para desplegar.
+- Node.js 24.x y pnpm compatible con lockfile v9. Instalar también devDependencies: el SDK que empaqueta el build está fijado allí.
+- Dominio/alias estable propio de staging; evitar URLs de preview efímeras para instalar PWA o probar enlaces Auth. Debe ser accesible desde iPhone/Android por HTTPS válido. Si existe protección de acceso del hosting, comprobar que permite descargar manifest/SW/assets en esos dispositivos y al abrir desde el icono; no relajar la protección de otros proyectos.
+- Usuarios y datos ficticios si posteriormente se autoriza un backend aislado. El staging inicial no necesita cuentas, base de datos, API ni variables de entorno.
+
+## Build y hosting portable
+
+Desde la raíz del checkout de `domus-3.0`:
+
+```sh
+pnpm install --frozen-lockfile --ignore-scripts --prod=false
+pnpm test
+pnpm run build
+pnpm run check
+pnpm run audit:security
+```
+
+Para otro proveedor estático, subir posteriormente el contenido de `dist/` como una publicación atómica e implementar este contrato:
+
+| Ajuste | Valor |
+|---|---|
+| Directorio público | `dist` (NO `dist/domus-3`) |
+| Documento | `/domus-3/index.html` |
+| Redirecciones temporales | `/`, `/domus-3` y `/domus-3/` → `/domus-3/index.html` |
+| URLs limpias | Desactivadas: conservar `.html` |
+| Fallback SPA | Ninguno: vistas internas del documento; rutas/recursos desconocidos deben responder 404 |
+| Cache-Control en `/domus-3/*` | `no-cache, max-age=0, must-revalidate` |
+| X-Content-Type-Options | `nosniff` |
+| MIME HTML / JS / JSON / PNG | `text/html`, `application/javascript` o `text/javascript`, `application/json`, `image/png` |
+| MIME manifest | `application/manifest+json; charset=utf-8` |
+| MIME service worker | `application/javascript; charset=utf-8` |
+| Scope permitido del worker | Directorio natural `/domus-3/`; NO enviar `Service-Worker-Allowed: /` |
+
+Las redirecciones conservan query; el navegador conserva el fragmento del enlace Auth. Una vez cargado el documento canónico, signup/recuperación generan la URL sin query ni fragmento. No redirigir HTML hacia una página de login del hosting que pierda dichos parámetros. No convertir errores de assets/API en una respuesta HTML 200.
+
+La caché HTTP revalida; la caché offline del worker sigue siendo explícita por build. Una publicación futura que cambie código o `config.js` en un origen ya instalado necesitará una nueva identidad de build aprobada para actualizar el precache. **Esta preparación no cambia código/config runtime ni build** y está destinada a un origen nuevo.
+
+## Vercel, preparado pero sin ejecutar
+
+`vercel.json` contiene únicamente preset estático (`framework: null`), instalación/build/salida, redirecciones, headers y apagado de despliegues Git automáticos. No crea proyecto ni despliegue y no contiene dominio, variables, funciones o secretos.
+
+Cuando se autorice publicar:
+
+1. Crear o seleccionar exclusivamente un **proyecto nuevo de staging**; nunca vincular este checkout al proyecto de 2.5.8.
+2. Raíz del proyecto: raíz del repositorio; Framework Preset: **Other**; Node 24.x. La instalación y build se toman de `vercel.json`; salida `dist`. No establecer `NODE_ENV` para omitir devDependencies.
+3. Seleccionar expresamente `domus-3.0` y el SHA revisado como origen del despliegue. Si el panel denomina una rama “Production Branch”, usar `domus-3.0` solamente en **este proyecto independiente de staging**; no modificar la rama/configuración del proyecto real de producción.
+4. La importación/publicación inicial o un despliegue manual se realizan solo tras autorización. `git.deploymentEnabled: false` desactiva despliegues automáticos de commits; un push de preparación no es una orden de publicación. No añadir workflow, hook ni tarea que ejecute deploy. Si posteriormente se desean despliegues Git automáticos, autorizar por separado el cambio y limitarlo a `domus-3.0` en este proyecto.
+5. Asignar el dominio/alias HTTPS estable del staging; comprobar el contrato HTTP de la tabla y la lista de aceptación inferior. No reasignar alias ni DNS de 2.5.8.
+
+Referencias del proveedor: [configuración estática](https://vercel.com/docs/project-configuration/vercel-json), [desactivar despliegues Git](https://vercel.com/docs/project-configuration/git-configuration#turning-off-all-automatic-deployments). El equivalente portable es publicar `dist` y reproducir los mismos headers/rutas; DOMUS no importa SDKs de hosting.
+
+## Configuración pública y persistencia OFF
+
+No hay variables de entorno obligatorias. El build actual **no sustituye variables de entorno en config.js**. No introducir supuestos nombres de variables esperando que activen Auth.
+
+El archivo público `config.js` conserva:
 
 ```js
-window.DOMUS_CONFIG = Object.freeze({
-  supabaseUrl: 'https://PROYECTO-AISLADO.supabase.co',
-  supabasePublishableKey: 'sb_publishable_REEMPLAZAR_POR_CLAVE_PUBLICA_AISLADA',
+window.DOMUS_CONFIG = window.DOMUS_CONFIG || Object.freeze({
+  supabaseUrl: '',
+  supabasePublishableKey: '',
   treasuryPersistence: false
 });
 ```
 
-Los valores anteriores son marcadores, no credenciales utilizables. Solo se admiten URL HTTPS sin credenciales, query/hash ni subruta y clave con formato publishable; no colocar claves secretas ni claves privilegiadas. La configuración es visible para cualquiera: la seguridad depende de Auth/RLS en el backend. No copiar una sesión, token, contraseña ni .env real al paquete. El audit de la rama exige ausencia de URL Supabase fija en el artefacto fuente por defecto; personalizar staging será un paso posterior revisado.
+No proporcionar URL/clave de producción, tokens, contraseñas, conexión SQL ni claves secretas/privilegiadas. No activar el flag, no inyectar un backend mediante `configurePersistence` y no montar la API de Tesorería. El hosting inicial no necesita configurar Supabase en absoluto.
 
-En Auth del proyecto aislado, aprobar el origen elegido y configurar exactamente la URL del documento en Site URL/redirect allowlist según corresponda, por ejemplo `https://staging-domus.example/domus-3/index.html`, sin comodines globales. Signup y recuperación usan el origen/ruta del documento actual; descartan query/hash y no aceptan `next`/`redirect_to` de entradas de usuario. Las plantillas de confirmación/recuperación y el proveedor de correo deben pertenecer a staging. Verificar entrega, caducidad, consumo de enlace y cambio de contraseña con cuentas ficticias; nada de esto se ejecutó en Alpha 17.
+En un trabajo futuro autorizado se podrá generar un `config.js` público usando **solo** la URL HTTPS del proyecto Supabase aislado y su clave pública publishable (`sb_publishable_…`), conservando `treasuryPersistence: false`. Es información visible, no un secreto. Validar el artefacto y su actualización de caché antes de publicar. No modificar ahora el archivo ni mezclar esas credenciales con el proyecto original.
 
-El backend base requiere las tablas/funciones de la aplicación heredada con RLS correctas; el fixture de tests NO es una migración completa de esa aplicación. Preparar y auditar ese esquema aislado antes de activar login en staging. Comprobar especialmente membership, cuentas, series, estados, documentos y storage. No basta con crear un proyecto Auth vacío.
+El flag apaga el nuevo contrato de Tesorería, no todos los módulos heredados. Por eso, habilitar Auth posteriormente exige un backend base aislado con esquema, RLS y storage auditados; un proyecto Auth vacío no basta. El fixture SQL es solo de pruebas, no una migración completa. No aplicar automáticamente propuestas SQL desde el build o el hosting.
 
-## Persistencia de Tesorería
+## Auth y recuperación posteriores
 
-`treasuryPersistence` debe permanecer **false**. El flag controla el nuevo contrato de las tablas de Tesorería, no sustituye las reglas de los módulos heredados. El modo por defecto conserva borradores/checkpoints y revisiones locales; los informes declaran que no están persistidos.
+Una vez elegido el origen real, configurar **solo en Supabase Auth del proyecto aislado**:
 
-La interfaz actual no incorpora transporte remoto del nuevo contrato. Incluso con flag `true`, sin backend explícito se muestra **bloqueado** y no se crean escrituras por autodetectar Supabase. `createTreasuryPersistence` acepta un backend explícito y comprueba contexto, kill switch y timeout. `createSqlTreasuryBackend` define operaciones SQL transaccionales para un servidor autenticado; no es un cliente SQL para conectar desde el navegador ni una RPC ya desplegada.
+- Site URL: `ORIGEN_HTTPS_DEL_STAGING/domus-3/index.html`.
+- Redirect URLs: esa misma URL exacta, sin comodines globales, `?source=pwa` ni fragmentos.
+- Plantillas y proveedor de correo propios del entorno aislado, cuando se autoricen pruebas con correos ficticios/controlados.
 
-Antes de conectar UI → servidor se necesita una API/RPC transaccional con actor derivado de la sesión validada por el servidor, nunca de los ids recibidos. Debe mantener las garantías probadas en PGlite: importación completa o rollback, identidad de reintentos, confirmaciones inmutables, revocación auditable y conflictos conservados. Faltan outbox/journal durable, recuperación de revisiones entre cierres y resolución explícita de conflictos de la cola heredada. No enviar la cola genérica directamente a las cuatro tablas nuevas.
+`ORIGEN_HTTPS_DEL_STAGING` es un marcador que se sustituirá por el origen elegido, sin barra final; no es una URL que se deba registrar literalmente. No añadir localhost ni previews antiguos a la configuración de este staging.
 
-La propuesta de esquema vigente sigue siendo `alpha16_prerc_up.sql`, únicamente para una instalación nueva previamente revisada. No ejecutarla automáticamente por hacer build, iniciar el cliente o activar un flag. El rollback solo admite tablas vacías. Cualquier migración de producción será otro trabajo con autorización específica, copia y recuperación verificadas.
+Signup y recuperación ya derivan el redirect del origen/ruta actual y descartan query/hash y destinos introducidos por usuario. `PASSWORD_RECOVERY` vuelve al mismo documento; cambia la contraseña del mismo usuario y mantiene su hogar. No se crea otra cuenta para recuperar una contraseña. Validar entrega, caducidad y consumo de enlaces más adelante; **esta preparación no envía correos ni cambia Auth**.
 
-## PostgreSQL real: comandos pendientes
+## PWA y aislamiento
 
-No se instalaron binarios ni contenedores en Alpha 17. Con `initdb`, `pg_ctl` y `psql` ya disponibles:
+- Manifest propio: nombre **DOMUS 3.0 · Tesorería**, id/scope `./`, inicio `./index.html?source=pwa`, iconos propios.
+- Worker servido desde `/domus-3/sw.js`, registrado con scope `/domus-3/`; rechaza instalación fuera de ese directorio.
+- Cachés `domus3:/domus-3:<build>`; limpia solo su prefijo. Sesión y almacenamiento usan prefijos DOMUS 3 y contexto de usuario/hogar.
+- El origen distinto impide que un worker legacy de scope raíz controle DOMUS 3.0. No basta una subcarpeta en el origen de 2.5.8 para garantizar esa separación.
 
-```sh
-pnpm run test:postgres
-```
+### iPhone
 
-El harness crea/detiene/elimina solamente su clúster temporal propio en loopback. Para un clúster PostgreSQL aislado ya existente, prístino y sin otras bases de aplicación, basta `psql` y una base **vacía** llamada `domus_test_*`. Ejemplo PowerShell con credenciales ficticias de ese entorno:
+1. Abrir el documento canónico del staging en **Safari**, modo normal, con HTTPS válido. Comprobar nombre, aviso de backend sin configurar y ausencia de redirecciones a 2.5.8.
+2. Compartir → Añadir a pantalla de inicio (según versión de iOS, activar “Abrir como app web”). Verificar icono/nombre DOMUS 3.
+3. Abrir desde el icono, girar portrait/landscape, comprobar tamaño 390 px aproximado, zoom/textos y desplazamiento de tablas sin desbordamiento global.
+4. Tras una primera carga online completa, cerrar y reabrir offline: debe abrir el shell, no simular login ni persistencia. Volver online y refrescar.
+5. Con backend aislado autorizado posteriormente: login/recuperación y navegación; abrir enlace de recuperación en Safari y desde PWA, comprobando mismo origen/usuario/hogar.
 
-```powershell
-$env:DATABASE_URL = 'postgresql://fixture:CLAVE_FICTICIA@127.0.0.1:55432/domus_test_alpha17'
-$env:DOMUS_TEST_DATABASE = 'domus_test_alpha17'
-pnpm run test:postgres
-```
+### Android
 
-Se rechazan hosts externos, bases fuera del prefijo, query/hash, confirmación ausente, tablas existentes, roles Auth preexistentes y clústeres con otras bases de aplicación. Nunca introducir una URL real. En modo DATABASE_URL no elimina el clúster ni sus datos: deja los fixtures para inspección y no admite otra ejecución sobre la base ya poblada. Requiere privilegios locales de fixture para crear roles/esquemas, no una clave Supabase privilegiada.
+1. Abrir la URL canónica en **Chrome**, modo normal y HTTPS; comprobar aviso sin backend.
+2. Menú → Instalar aplicación/Añadir a pantalla de inicio según dispositivo. Abrir desde el icono y comprobar nombre DOMUS 3 y modo independiente.
+3. Repetir portrait/landscape, refresh, cierre/reapertura y shell offline/online. Con backend autorizado, repetir Auth y recuperación.
 
-El harness prepara seis carreras con conexiones independientes y observación de bloqueos, más integridad, rollback, identidad, timestamps y lecturas concurrentes entre hogares. En esta máquina solo se validó su sintaxis, sus guardas y el fallo previo `initdb ENOENT`. **Concurrencia real sigue PENDIENTE.**
+Las 28 pruebas de navegador usan Edge headless con fixtures; no certifican Safari/iPhone ni Android físicos. Las pruebas de dispositivo y headers del host real se hacen después de una publicación autorizada, no se declaran realizadas ahora.
 
-## Aceptación antes de RC
+## Checklist de aceptación tras publicar
 
-- Auth/correo real aislado, pertenencia a cero/uno/dos hogares, revocación y limpieza del cliente.
-- API transaccional aislada y pruebas multiconexión; cierre a mitad de import/sync y reintento con identidades conservadas.
-- Instalación y actualización física en Safari/iPhone y Chrome/Android; apertura desde icono, portrait/landscape, offline/online y almacenamiento bajo presión.
-- Verificar coexistencia con 2.5.8 sin alterar su origen, SW, cachés ni datos. El ensayo local conserva cachés legacy ficticias, no certifica todas las versiones desplegadas.
-- Aprobar configuración/URL y procedimiento de despliegue de staging. No hay staging publicado por esta sesión.
+- [ ] Proyecto, origen y alias exclusivos; fuente `domus-3.0` y SHA esperado; Alpha 19/build 30019.
+- [ ] Raíz y `/domus-3/` llegan a `/domus-3/index.html`; refresh funciona; ruta inexistente devuelve 404.
+- [ ] Manifest, SW, SDK, módulos e iconos responden 200 con MIME correcto; no se sirve HTML como JS.
+- [ ] HTML/config/asset-manifest/SW revalidan; sin headers que amplíen scope a `/`.
+- [ ] En el paquete no aparecen rutas Windows, loopback ni previews antiguos. Configuración vacía y flag false; sin llamadas a Supabase ni escrituras remotas en arranque inicial.
+- [ ] PWA DOMUS 3 instalable en ambos dispositivos; scope/start_url correctos; shell offline tras cargar online.
+- [ ] DOMUS 2.5.8 sigue en su origen, icono, worker y almacenamiento originales; no se desinstala ni se limpia para probar DOMUS 3.
+- [ ] Inspección remota de navegador: registro SW solo `/domus-3/`, caches con prefijo `domus3:`, sin datos de 2.5.8.
+- [ ] No activar Auth hasta disponer de proyecto aislado/esquema/RLS; después allowlist exacta y recuperación del mismo usuario/hogar.
+- [ ] Anotar URL, SHA, dispositivos/versiones y resultados reales; no confundir preparación del repositorio con certificación de RC1.
 
-## Actualización Alpha 18 (sin desplegar)
+## Retirar completamente el staging
 
-El runtime, transporte HTTPS opcional y handler transaccional ya existen. [Contrato y matriz actual](ALPHA18-PERSISTENCE-RUNTIME.md). Queda montar el endpoint en el host aislado con verificación de sesión y una transacción SQL autenticada real. No usar contexto/actor del body como credencial ni conceder el rol ejecutor al navegador. Configurar Auth no activa el runtime.
+1. Conservar antes los informes/borradores ficticios necesarios y anotar cualquier operación pendiente: desinstalar puede perder almacenamiento local.
+2. Desactivar solo las publicaciones del proyecto de staging; retirar su alias/dominio y sus despliegues/proyecto cuando se autorice. No tocar DNS, proyectos ni ramas de producción.
+3. En cada dispositivo, quitar la PWA DOMUS 3 y borrar los datos de sitio **solo del origen de staging**. La copia offline puede sobrevivir a retirar el hosting; borrar sus datos elimina SW, caches, IndexedDB y sesión. No usar una limpieza global ni borrar el origen de 2.5.8.
+4. Si se configuró Auth aislado, retirar la URL de staging de su allowlist/Site URL y revocar únicamente sesiones de pruebas según política; retirar ese backend por separado tras comprobar que no lo usa otro entorno. Nunca actuar sobre Supabase producción.
+5. Confirmar que la URL de staging ya no sirve la aplicación, el icono/offline local se ha retirado y 2.5.8 sigue funcionando.
 
-La propuesta Alpha 18 es **aditiva** sobre Alpha 16; el harness aislado aplica ambas en ese orden y prepara ocho carreras. Los archivos anteriores permanecen históricos. No ejecutar esas propuestas sobre producción ni asumir que el fixture mínimo reproduce su esquema. El rollback Alpha 18 exige ausencia de recibos, historial y revisiones avanzadas.
+## Validación de esta preparación
 
-La prueba nueva se ejecuta con pnpm run test:runtime:browser: perfil temporal Edge, IndexedDB real, PGlite ficticio y red exterior bloqueada. No requiere ni crea un proyecto Supabase. PostgreSQL real sigue detenido en preflight por ausencia de initdb.
+Suite Node completa (incluye SQL PGlite aislado), `test:browser`, `test:runtime:browser`, build, check, audit:security y `git diff --check`. Tres pruebas nuevas verifican configuración de hosting, MIME/caché/scope y ausencia de dependencias runtime de loopback/Windows/previews. PostgreSQL multiconexión sigue pendiente de un entorno autorizado con binarios; no es necesario para el staging estático sin backend. No se ejecuta contra producción.
 
-## Actualización Alpha 19
+Resultado de esta preparación (2026-09-21): **171/171 pruebas Node**, incluidas **52/52 SQL aisladas**; **28/28 escenarios de navegador** (20 de regresión/Auth/PWA/responsive y 8 de persistencia aislada). Build de 31 archivos; sintaxis de 59 JS y un inline; seguridad de 28 archivos activos y diff correctos. Sin cambios en runtime, versión ni build. No se publicaron servicios ni se realizaron pruebas en dispositivos físicos.
 
-Los adaptadores HTTP, verificación Auth y transacción de pool se componen en server/treasury-service.js, sin listener ni conexiones automáticas. [Contrato, montaje y límites](ALPHA19-SERVER-BOUNDARY.md). Proporcionar exclusivamente proveedores aislados autorizados, configurar timeouts/tamaño del pool y verificar esquema, RLS y sesiones antes de activar. Nada de esto configura o despliega producción.
+Guías de instalación del fabricante: [Safari/iPhone](https://support.apple.com/guide/iphone/bookmark-a-website-iph42ab2f3a7/ios), [aplicaciones web en Chrome/Android](https://support.google.com/chrome/answer/9658361?co=GENIE.Platform%3DAndroid&hl=en).

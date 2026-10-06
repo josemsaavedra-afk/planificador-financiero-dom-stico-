@@ -171,7 +171,7 @@
     </div>
   </section>
 
-  <section id="settingsView" class="hidden"><div class="grid settings-grid"><div class="card"><h2>Personas</h2><div id="peopleSettingsList"></div><div class="actions" style="margin-top:10px"><input id="newPerson" placeholder="Nueva persona" style="flex:1;border:1px solid #d0d5dd;border-radius:10px;padding:10px"><button class="btn" onclick="addSettingItem('people')">Añadir</button></div></div><div class="card"><h2>Bancos / medios</h2><div id="accountsSettingsList"></div><div class="actions" style="margin-top:10px"><input id="newAccount" placeholder="Nuevo banco/medio" style="flex:1;border:1px solid #d0d5dd;border-radius:10px;padding:10px"><button class="btn" onclick="addSettingItem('accounts')">Añadir</button></div></div><div class="card"><h2>Categorías</h2><div id="categorySettingsList"></div><div class="actions" style="margin-top:10px"><input id="newCategory" placeholder="Nueva categoría" style="flex:1;border:1px solid #d0d5dd;border-radius:10px;padding:10px"><select id="newCategoryKind" style="border:1px solid #d0d5dd;border-radius:10px;padding:10px"><option value="expense">Gasto</option><option value="income">Ingreso</option><option value="both">Ambos</option></select><button class="btn" onclick="addCategory()">Añadir</button></div><div class="actions" style="margin-top:10px"><button class="btn" id="seedCategoryBtn" onclick="seedDefaultCategories()">Incorporar categorías iniciales que falten</button></div><p class="muted" id="categorySettingsMsg" role="status"></p></div><div class="card"><h2>Hogar compartido</h2><div id="householdInfo"></div><div id="membersList" style="margin-top:10px"></div></div><div class="card"><h2>Lógica de tesorería</h2><p>DOMUS calcula la tesorería con las <strong>fechas reales previstas</strong> de los movimientos.</p><p class="muted">El “próximo cobro” es el primer ingreso pendiente con fecha futura, sea cual sea el día. Las previsiones usan 7 días · fin de mes · 30 días · fin de año e incluyen vencidos que siguen pendientes.</p></div><div class="card"><h2>Información</h2><p><strong>Versión de la app</strong><br><span class="badge-v">V2.5.8</span><br><small class="muted">Compilación móvil 254</small></p><p class="muted">La versión queda visible aquí también en iPhone.</p></div><div class="card"><h2>Sesión</h2><p class="muted" id="sessionUser"></p><button class="btn danger" onclick="logout()">Cerrar sesión</button></div></div></section>
+  <section id="settingsView" class="hidden"><div class="grid settings-grid"><div class="card"><h2>Personas</h2><div id="peopleSettingsList"></div><div class="actions" style="margin-top:10px"><input id="newPerson" placeholder="Nueva persona" style="flex:1;border:1px solid #d0d5dd;border-radius:10px;padding:10px"><button class="btn" onclick="addSettingItem('people')">Añadir</button></div></div><div class="card"><h2>Bancos / medios</h2><div id="accountsSettingsList"></div><div class="actions" style="margin-top:10px"><input id="newAccount" placeholder="Nuevo banco/medio" style="flex:1;border:1px solid #d0d5dd;border-radius:10px;padding:10px"><button class="btn" onclick="addSettingItem('accounts')">Añadir</button></div></div><div class="card"><h2>Categorías</h2><div id="categorySettingsList"></div><div class="actions" style="margin-top:10px"><input id="newCategory" placeholder="Nueva categoría" style="flex:1;border:1px solid #d0d5dd;border-radius:10px;padding:10px"><select id="newCategoryKind" style="border:1px solid #d0d5dd;border-radius:10px;padding:10px"><option value="expense">Gasto</option><option value="income">Ingreso</option><option value="both">Ambos</option></select><button class="btn" onclick="addCategory()">Añadir</button></div><div class="actions" style="margin-top:10px"><button class="btn" id="seedCategoryBtn" onclick="seedDefaultCategories()">Incorporar categorías iniciales que falten</button><button class="btn" onclick="showInactiveCategories()">Recuperar categorías desactivadas</button></div><div id="inactiveCategoriesList"></div><p class="muted" id="categorySettingsMsg" role="status"></p></div><div class="card"><h2>Hogar compartido</h2><div id="householdInfo"></div><div id="membersList" style="margin-top:10px"></div></div><div class="card"><h2>Lógica de tesorería</h2><p>DOMUS calcula la tesorería con las <strong>fechas reales previstas</strong> de los movimientos.</p><p class="muted">El “próximo cobro” es el primer ingreso pendiente con fecha futura, sea cual sea el día. Las previsiones usan 7 días · fin de mes · 30 días · fin de año e incluyen vencidos que siguen pendientes.</p></div><div class="card"><h2>Información</h2><p><strong>Versión de la app</strong><br><span class="badge-v">V2.5.8</span><br><small class="muted">Compilación móvil 254</small></p><p class="muted">La versión queda visible aquí también en iPhone.</p></div><div class="card"><h2>Sesión</h2><p class="muted" id="sessionUser"></p><button class="btn danger" onclick="logout()">Cerrar sesión</button></div></div></section>
 </main>
 </div>
 
@@ -457,7 +457,19 @@ function openDashboardDetail(kind){const b=dashboardBuckets();if(kind==='late')r
 function openTreasuryDetail(kind){const t=treasurySummary();if(kind==='payday')return openSummary(`Próximo cobro · ${fmt(t.np)} · ${euro(t.nextIncome)}`,t.nextIncomeRows);if(kind==='expenses')return openSummary(`Pagos pendientes hasta próximo cobro · ${fmt(t.np)}`,t.expenses)}
 function openDayModal(key){const d=parseDate(key),list=occurrencesBetween(d,d),inc=amountOf(list,'income'),exp=amountOf(list,'expense'),net=inc-exp;document.getElementById('dayModalTitle').textContent=new Intl.DateTimeFormat('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(d);document.getElementById('dayModalSummary').innerHTML=`Ingresos: <strong>${euro(inc)}</strong> · Pagos: <strong>${euro(exp)}</strong> · Neto: <strong>${euro(net)}</strong>`;document.getElementById('dayModalList').innerHTML=list.length?list.map(renderItem).join(''):'<div class="empty">Sin movimientos este día.</div>';document.getElementById('dayAddBtn').classList.remove('hidden');document.getElementById('dayAddBtn').onclick=()=>openForm(key);document.getElementById('dayModal').classList.add('show')}function closeDayModal(){document.getElementById('dayModal').classList.remove('show')}
 async function addSettingItem(kind){const isPeople=kind==='people',input=document.getElementById(isPeople?'newPerson':'newAccount'),name=input.value.trim();if(!name)return;try{await insertRowSafely(kind,{household_id:household.id,name})}catch(err){return alert(friendlyCloudError(err))}input.value='';await refreshAll()}
-async function addCategory(){const name=document.getElementById('newCategory').value.trim(),kind=document.getElementById('newCategoryKind').value;if(!name)return;try{await insertRowSafely('categories',{household_id:household.id,name,kind})}catch(err){return alert(friendlyCloudError(err))}document.getElementById('newCategory').value='';await refreshAll()}
+async function addCategory(){
+  const name=document.getElementById('newCategory').value.trim(),kind=document.getElementById('newCategoryKind').value;
+  if(!name)return;
+  if(!navigator.onLine)return alert('Conéctate para comprobar si la categoría ya existe.');
+  try{
+    const {data,error}=await sb.from('categories').select('id,name,kind,active').eq('household_id',household.id);
+    if(error)throw error;
+    const duplicate=(data||[]).find(row=>categoryMatchKey(row.name,row.kind)===categoryMatchKey(name,kind));
+    if(duplicate)return alert(duplicate.active===false?'Ya existe una categoría desactivada con ese nombre. Puedes recuperarla desde Ajustes.':'La categoría ya existe.');
+    await insertRowSafely('categories',{household_id:household.id,name,kind});
+  }catch(err){return alert(friendlyCloudError(err))}
+  document.getElementById('newCategory').value='';await refreshAll()
+}
 // Defaults are user-triggered and only applied to the currently authenticated household.
 const categoryMatchKey=(name,kind)=>String(name).trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es-ES')+':'+kind;
 let seedingCategories=false;
@@ -488,6 +500,25 @@ async function seedDefaultCategories(){
     notice.textContent=inserted?'Categorías nuevas incorporadas: '+inserted:'Ya tienes todas las categorías iniciales.';
   }catch(err){notice.textContent='No se han podido completar las categorías: '+friendlyCloudError(err)}
   finally{seedingCategories=false;button.disabled=false}
+}
+async function showInactiveCategories(){
+  if(!household?.id)return;
+  const box=document.getElementById('inactiveCategoriesList');
+  const {data,error}=await sb.from('categories').select('id,name,kind,active').eq('household_id',household.id).eq('active',false).order('name');
+  if(error){box.textContent=friendlyCloudError(error);return}
+  box.replaceChildren();
+  if(!data?.length){box.textContent='No hay categorías desactivadas.';return}
+  for(const row of data){
+    const wrapper=document.createElement('div');wrapper.className='setting-row';
+    const label=document.createElement('span');label.textContent=row.name+' · '+(row.kind==='income'?'ingreso':row.kind==='expense'?'gasto':'ambos');
+    const button=document.createElement('button');button.className='btn';button.textContent='Reactivar';
+    button.addEventListener('click',async()=>{
+      button.disabled=true;
+      try{await updateRowSafely('categories',row.id,{active:true});await refreshAll();await showInactiveCategories()}
+      catch(err){alert(friendlyCloudError(err));button.disabled=false}
+    });
+    wrapper.append(label,button);box.append(wrapper)
+  }
 }
 async function editCategory(id){
   const original=categories.find(row=>row.id===id);

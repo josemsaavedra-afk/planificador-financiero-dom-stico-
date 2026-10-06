@@ -7,6 +7,7 @@ const output = path.join(root, 'dist', 'domus-3');
 await mkdir(output, { recursive: true });
 const files = ['config.js', 'index.html', 'manifest.webmanifest', 'version.json', 'sw.js', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 for (const name of await readdir(path.join(root, 'src', 'treasury'))) if (name.endsWith('.js')) files.push('src/treasury/' + name);
+for (const name of await readdir(path.join(root, 'src', 'catalogs'))) if (name.endsWith('.js')) files.push('src/catalogs/' + name);
 for (const file of files) {
   await mkdir(path.dirname(path.join(output, file)), { recursive: true });
   await copyFile(path.join(root, file), path.join(output, file));

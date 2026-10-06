@@ -1,0 +1,10 @@
+DOMUS V2.5.2 · build 252
+
+Correcciones y cambios:
+- Botón superior «Sincronizar».
+- Corregido dashboardBuckets is not defined.
+- Previsiones: 7 días · fin de mes · 30 días · fin de año, incluyendo vencidos pendientes.
+- Próximo cobro: primer ingreso pendiente con fecha futura, sin reglas fijas 10/25.
+- Configuración ya no muestra reglas 10/25; los datos antiguos se conservan sin usarse para cálculos.
+- Calendario vertical continuo con carga progresiva de meses, flechas/Hoy y cabecera mensual fija que cambia al desplazarse.
+- Previsión por ámbito alineada con los cuatro horizontes.

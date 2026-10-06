@@ -1,0 +1,31 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "pnpm install --frozen-lockfile --ignore-scripts --prod=false",
+  "buildCommand": "pnpm run build && pnpm run check",
+  "outputDirectory": "dist",
+  "cleanUrls": false,
+  "git": { "deploymentEnabled": false },
+  "redirects": [
+    { "source": "/", "destination": "/domus-3/index.html", "permanent": false },
+    { "source": "/domus-3", "destination": "/domus-3/index.html", "permanent": false },
+    { "source": "/domus-3/", "destination": "/domus-3/index.html", "permanent": false }
+  ],
+  "headers": [
+    {
+      "source": "/domus-3/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, max-age=0, must-revalidate" },
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
+      ]
+    },
+    {
+      "source": "/domus-3/manifest.webmanifest",
+      "headers": [{ "key": "Content-Type", "value": "application/manifest+json; charset=utf-8" }]
+    },
+    {
+      "source": "/domus-3/sw.js",
+      "headers": [{ "key": "Content-Type", "value": "application/javascript; charset=utf-8" }]
+    }
+  ]
+}

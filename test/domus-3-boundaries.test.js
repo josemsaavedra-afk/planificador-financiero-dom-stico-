@@ -9,7 +9,7 @@ test('TransportERP import is idempotent and handles corrections',()=>{
   assert.equal(a.action,'insert');
   assert.equal(planTransportERPImport(sample,a.record).action,'unchanged');
   assert.equal(planTransportERPImport({...sample,source_revision:2,amount_cents:13000},a.record).action,'update');
-  assert.equal(planTransportERPImport({...sample,source_revision:0},a.record).action,'stale');
+  assert.equal(planTransportERPImport(sample,planTransportERPImport({...sample,source_revision:2,amount_cents:13000},a.record).record).action,'stale');
 });
 test('TransportERP rejects cross-household, duplicate revisions and bad amounts',()=>{
   const a=normalizeTransportERPRecord(sample);

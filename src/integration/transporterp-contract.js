@@ -32,7 +32,7 @@ export function normalizeTransportERPRecord(raw) {
     amount_cents: raw.amount_cents,
     currency: 'EUR',
     status,
-    related_source_entity_ids: [...new Set((raw.related_source_entity_ids || []).map(id => required(id, 'related_source_entity_ids')))].sort()
+    related_source_entity_ids: [...new Set((raw.related_source_entity_ids || []).map(id => required(id, 'related_source_entity_ids')))]
   };
   if (raw.currency !== 'EUR') throw new TypeError('Only EUR is supported');
   if (!Array.isArray(raw.related_source_entity_ids || [])) throw new TypeError('Invalid related entities');
@@ -46,12 +46,11 @@ export function planTransportERPImport(raw, previous = null) {
   const incoming = normalizeTransportERPRecord(raw);
   const identity = transportERPIdentity(incoming);
   if (!previous) return { action: 'insert', identity, record: incoming };
-  const normalizedPrevious = normalizeTransportERPRecord(previous);
-  if (transportERPIdentity(normalizedPrevious) !== identity) throw new Error('Cross-entity or cross-household update denied');
-  if (incoming.source_revision < normalizedPrevious.source_revision) return { action: 'stale', identity, record: normalizedPrevious };
-  if (incoming.source_revision === normalizedPrevious.source_revision) {
-    if (JSON.stringify(incoming) !== JSON.stringify(normalizedPrevious)) throw new Error('Conflicting payload for same revision');
-    return { action: 'unchanged', identity, record: normalizedPrevious };
+  if (transportERPIdentity(previous) !== identity) throw new Error('Cross-entity or cross-household update denied');
+  if (incoming.source_revision < previous.source_revision) return { action: 'stale', identity, record: previous };
+  if (incoming.source_revision === previous.source_revision) {
+    if (JSON.stringify(incoming) !== JSON.stringify(normalizeTransportERPRecord(previous))) throw new Error('Conflicting payload for same revision');
+    return { action: 'unchanged', identity, record: previous };
   }
   return { action: 'update', identity, record: incoming };
 }

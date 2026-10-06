@@ -459,7 +459,6 @@ function openDayModal(key){const d=parseDate(key),list=occurrencesBetween(d,d),i
 async function addSettingItem(kind){const isPeople=kind==='people',input=document.getElementById(isPeople?'newPerson':'newAccount'),name=input.value.trim();if(!name)return;try{await insertRowSafely(kind,{household_id:household.id,name})}catch(err){return alert(friendlyCloudError(err))}input.value='';await refreshAll()}
 async function addCategory(){const name=document.getElementById('newCategory').value.trim(),kind=document.getElementById('newCategoryKind').value;if(!name)return;try{await insertRowSafely('categories',{household_id:household.id,name,kind})}catch(err){return alert(friendlyCloudError(err))}document.getElementById('newCategory').value='';await refreshAll()}
 // Defaults are user-triggered and only applied to the currently authenticated household.
-const DOMUS3_CATEGORY_DEFAULTS=[['Alimentación','expense'],['Vivienda','expense'],['Suministros','expense'],['Transporte','expense'],['Seguros','expense'],['Salud','expense'],['Educación','expense'],['Ocio','expense'],['Impuestos','expense'],['Otros gastos','expense'],['Ingresos habituales','income'],['Ingresos variables','income'],['Reembolsos','income']];
 const categoryMatchKey=(name,kind)=>String(name).trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('es-ES')+':'+kind;
 let seedingCategories=false;
 async function seedDefaultCategories(){
@@ -473,9 +472,11 @@ async function seedDefaultCategories(){
     const householdId=household.id;
     const {data,error}=await sb.from('categories').select('id,name,kind,active').eq('household_id',householdId);
     if(error)throw error;
+    const {missingDefaultCategories}=await import('./src/catalogs/defaults.js');
+    const missing=missingDefaultCategories(data||[]);
     const known=new Set((data||[]).map(row=>categoryMatchKey(row.name,row.kind)));
     let inserted=0;
-    for(const [name,kind] of DOMUS3_CATEGORY_DEFAULTS){
+    for(const {name,kind} of missing){
       if(household?.id!==householdId)throw new Error('El hogar ha cambiado');
       const key=categoryMatchKey(name,kind);
       if(known.has(key))continue;

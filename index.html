@@ -171,7 +171,7 @@
     </div>
   </section>
 
-  <section id="settingsView" class="hidden"><div class="grid settings-grid"><div class="card"><h2>Personas</h2><div id="peopleSettingsList"></div><div class="actions" style="margin-top:10px"><input id="newPerson" placeholder="Nueva persona" style="flex:1;border:1px solid #d0d5dd;border-radius:10px;padding:10px"><button class="btn" onclick="addSettingItem('people')">Añadir</button></div></div><div class="card"><h2>Bancos / medios</h2><div id="accountsSettingsList"></div><div class="actions" style="margin-top:10px"><input id="newAccount" placeholder="Nuevo banco/medio" style="flex:1;border:1px solid #d0d5dd;border-radius:10px;padding:10px"><button class="btn" onclick="addSettingItem('accounts')">Añadir</button></div></div><div class="card"><h2>Categorías</h2><div id="categorySettingsList"></div><div class="actions" style="margin-top:10px"><input id="newCategory" placeholder="Nueva categoría" style="flex:1;border:1px solid #d0d5dd;border-radius:10px;padding:10px"><select id="newCategoryKind" style="border:1px solid #d0d5dd;border-radius:10px;padding:10px"><option value="expense">Gasto</option><option value="income">Ingreso</option><option value="both">Ambos</option></select><button class="btn" onclick="addCategory()">Añadir</button></div><div class="actions" style="margin-top:10px"><button class="btn" id="seedCategoryBtn" onclick="seedDefaultCategories()">Incorporar categorías iniciales que falten</button><button class="btn" onclick="showInactiveCategories()">Recuperar categorías desactivadas</button></div><div id="inactiveCategoriesList"></div><p class="muted" id="categorySettingsMsg" role="status"></p></div><div class="card"><h2>Hogar compartido</h2><div id="householdInfo"></div><div id="membersList" style="margin-top:10px"></div></div><div class="card"><h2>Lógica de tesorería</h2><p>DOMUS calcula la tesorería con las <strong>fechas reales previstas</strong> de los movimientos.</p><p class="muted">El “próximo cobro” es el primer ingreso pendiente con fecha futura, sea cual sea el día. Las previsiones usan 7 días · fin de mes · 30 días · fin de año e incluyen vencidos que siguen pendientes.</p></div><div class="card"><h2>Información</h2><p><strong>Versión de la app</strong><br><span class="badge-v">V2.5.8</span><br><small class="muted">Compilación móvil 254</small></p><p class="muted">La versión queda visible aquí también en iPhone.</p></div><div class="card"><h2>Sesión</h2><p class="muted" id="sessionUser"></p><button class="btn danger" onclick="logout()">Cerrar sesión</button></div></div></section>
+  <section id="settingsView" class="hidden"><div class="grid settings-grid"><div class="card"><h2>Personas</h2><div id="peopleSettingsList"></div><div class="actions" style="margin-top:10px"><input id="newPerson" placeholder="Nueva persona" style="flex:1;border:1px solid #d0d5dd;border-radius:10px;padding:10px"><button class="btn" onclick="addSettingItem('people')">Añadir</button></div></div><div class="card"><h2>Bancos / medios</h2><div id="accountsSettingsList"></div><div class="actions" style="margin-top:10px"><input id="newAccount" placeholder="Nuevo banco/medio" style="flex:1;border:1px solid #d0d5dd;border-radius:10px;padding:10px"><button class="btn" onclick="addSettingItem('accounts')">Añadir</button></div></div><div class="card"><h2>Categorías</h2><div id="categorySettingsList"></div><div class="actions" style="margin-top:10px"><input id="newCategory" placeholder="Nueva categoría" style="flex:1;border:1px solid #d0d5dd;border-radius:10px;padding:10px"><select id="newCategoryKind" style="border:1px solid #d0d5dd;border-radius:10px;padding:10px"><option value="expense">Gasto</option><option value="income">Ingreso</option><option value="both">Ambos</option></select><button class="btn" onclick="addCategory()">Añadir</button></div><div class="actions" style="margin-top:10px"><button class="btn" id="seedCategoryBtn" onclick="seedDefaultCategories()">Incorporar categorías iniciales que falten</button><button class="btn" onclick="showInactiveCategories()">Recuperar categorías desactivadas</button></div><div id="inactiveCategoriesList"></div><p class="muted" id="categorySettingsMsg" role="status"></p></div><div class="card"><h2>Comercios, empresas y personas</h2><p class="muted">Aquí puedes consultar a quién has pagado o quién te ha pagado. Los nombres se obtienen de tus movimientos; no se modifica ningún dato.</p><div class="field"><label for="counterpartyCatalogSearch">Buscar comercio, empresa o persona</label><input id="counterpartyCatalogSearch" placeholder="Ej. Mercadona" oninput="renderCounterpartyCatalog()"></div><div id="counterpartyCatalogList"></div></div><div class="card"><h2>Hogar compartido</h2><div id="householdInfo"></div><div id="membersList" style="margin-top:10px"></div></div><div class="card"><h2>Lógica de tesorería</h2><p>DOMUS calcula la tesorería con las <strong>fechas reales previstas</strong> de los movimientos.</p><p class="muted">El “próximo cobro” es el primer ingreso pendiente con fecha futura, sea cual sea el día. Las previsiones usan 7 días · fin de mes · 30 días · fin de año e incluyen vencidos que siguen pendientes.</p></div><div class="card"><h2>Información</h2><p><strong>Versión de la app</strong><br><span class="badge-v">V2.5.8</span><br><small class="muted">Compilación móvil 254</small></p><p class="muted">La versión queda visible aquí también en iPhone.</p></div><div class="card"><h2>Sesión</h2><p class="muted" id="sessionUser"></p><button class="btn danger" onclick="logout()">Cerrar sesión</button></div></div></section>
 </main>
 </div>
 
@@ -433,7 +433,39 @@ function standardizeCounterpartyInput(){
  else input.value=input.value.trim();
 }
 document.getElementById('fCounterparty')?.addEventListener('blur',standardizeCounterpartyInput);
-function renderAll(){document.getElementById('todayLabel').textContent=new Intl.DateTimeFormat('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date());renderDashboard();if(!document.getElementById('calendarView').classList.contains('hidden'))renderCalendar(calendarDate);renderMovements();renderTreasury();renderStats();renderDocuments();renderSettings();populateSelects();refreshCounterpartySuggestions()}
+function renderCounterpartyCatalog(){
+ const target=document.getElementById('counterpartyCatalogList');
+ if(!target)return;
+ const query=counterpartyKey(document.getElementById('counterpartyCatalogSearch')?.value||'');
+ const groups=new Map();
+ for(const row of series){
+  const name=String(row.counterparty||'').trim();
+  if(!name)continue;
+  const key=counterpartyKey(name);
+  if(!groups.has(key))groups.set(key,{name,count:0});
+  groups.get(key).count++;
+ }
+ const matches=[...groups.values()].filter(row=>counterpartyKey(row.name).includes(query)).sort((a,b)=>a.name.localeCompare(b.name,'es'));
+ target.replaceChildren();
+ const summary=document.createElement('p');summary.className='muted';summary.textContent=matches.length+' terceros encontrados';target.append(summary);
+ for(const row of matches.slice(0,100)){
+  const line=document.createElement('div');line.className='setting-row';
+  const label=document.createElement('span');label.textContent=row.name+' · '+row.count+' movimientos registrados';
+  const button=document.createElement('button');button.type='button';button.className='btn';button.textContent='Ver movimientos';
+  button.addEventListener('click',()=>showCounterpartyMovements(row.name));
+  line.append(label,button);target.append(line);
+ }
+ if(matches.length>100){const more=document.createElement('p');more.className='muted';more.textContent='Mostrando los primeros 100. Escribe parte del nombre para afinar la búsqueda.';target.append(more)}
+}
+function showCounterpartyMovements(name){
+ const input=document.getElementById('movementSearch');
+ if(!input)return;
+ input.value=name;
+ movementFilter='all';movementPage=0;
+ document.querySelectorAll('#movementTabs button').forEach(button=>button.classList.toggle('active',button.dataset.filter==='all'));
+ showView('movements');
+}
+function renderAll(){document.getElementById('todayLabel').textContent=new Intl.DateTimeFormat('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date());renderDashboard();if(!document.getElementById('calendarView').classList.contains('hidden'))renderCalendar(calendarDate);renderMovements();renderTreasury();renderStats();renderDocuments();renderSettings();populateSelects();refreshCounterpartySuggestions();renderCounterpartyCatalog()}
 
 function populateSelects(currentAccountId=''){document.getElementById('fPerson').innerHTML='<option value="">—</option>'+people.filter(x=>x.active!==false).map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');const bankRows=accounts.filter(x=>x.active!==false||x.id===currentAccountId);document.getElementById('fBank').innerHTML='<option value="">—</option>'+bankRows.map(x=>`<option value="${x.id}">${escapeHtml(x.name)}${x.active===false?' (anterior)':''}</option>`).join('');document.getElementById('fCategory').innerHTML='<option value="">—</option>'+categories.filter(x=>x.active!==false).map(x=>`<option value="${x.id}">${escapeHtml(x.name)}</option>`).join('');const ds=document.getElementById('docSeries');if(ds)ds.innerHTML='<option value="">— Sin vincular —</option>'+series.slice().sort((a,b)=>a.concept.localeCompare(b.concept)).map(x=>`<option value="${x.id}">${escapeHtml(x.concept)}</option>`).join('');const li=document.getElementById('fLinkedInvoices');if(li)li.innerHTML=series.filter(x=>x.type==='income').sort((a,b)=>String(b.start_date).localeCompare(String(a.start_date))).slice(0,250).map(x=>`<option value="${x.id}">${escapeHtml(x.invoice_number||x.concept)} · ${euro(x.amount)} · ${escapeHtml(x.counterparty||'')}</option>`).join('')}
 let movementReturnFocus=null;

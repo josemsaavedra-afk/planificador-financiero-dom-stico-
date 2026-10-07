@@ -15,8 +15,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-      - run: npm ci
+      # Sin package-lock.json, npm ci no puede ejecutarse. Generar y versionar el lockfile sigue pendiente.
+      - run: npm install --no-audit --no-fund
       - run: npm test
       - run: npm run build
       - run: npm run check
